@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cargo build
+        run: cargo build --workspace --all-features
+      - name: Cargo test
+        run: cargo test --workspace
+
+  rust-feature-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        variant: [minimal, all, truenorth, dynaps]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Matrix build ${{ matrix.variant }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.variant }}" in
+            minimal)
+              cargo build --workspace
+              cargo test --workspace
+              ;;
+            all)
+              cargo build --workspace --all-features
+              cargo test --workspace
+              ;;
+            truenorth)
+              cargo build -p nc-backend-truenorth
+              cargo test -p nc-backend-truenorth
+              ;;
+            dynaps)
+              cargo build -p nc-backend-dynaps
+              cargo test -p nc-backend-dynaps
+              ;;
+          esac
+
+  python-wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.8','3.9','3.10','3.11','3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install maturin
+        run: pip install maturin
+      - name: Build Python wheel (bindings + selected backends)
+        run: maturin build -m pyproject.toml -F python -F backend-truenorth -F backend-dynaps
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: target/wheels/*.whl

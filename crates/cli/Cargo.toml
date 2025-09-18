@@ -1,0 +1,109 @@
+[package]
+name = "neuro-compiler-cli"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[features]
+default = []
+# Aggregates
+frontends-all = [
+  "frontend-pynn",
+  "frontend-nengo",
+  "frontend-nest",
+  "frontend-brian",
+  "frontend-bindsnet",
+  "frontend-carlsim",
+  "frontend-genn",
+  "frontend-rockpool",
+]
+backends-all = [
+  "backend-loihi",
+  "backend-truenorth",
+  "backend-akida",
+  "backend-spinnaker",
+  "backend-neurogrid",
+  "backend-dynaps",
+  "backend-memxbar",
+  "backend-custom-asic",
+]
+sims-all = [
+  "sim-neuron",
+  "sim-coreneuron",
+  "sim-arbor",
+  "sim-hw-specific",
+]
+all-surfaces = ["frontends-all", "backends-all", "sims-all"]
+mlir = ["dep:nc-mlir-bridge", "nc-mlir-bridge/mlir"]
+bin-artifacts = ["nc-passes/bin"]
+telemetry = ["dep:nc-telemetry"]
+
+# Leaf features mapping to optional deps
+frontend-pynn = ["dep:nc-frontend-pynn"]
+frontend-nengo = ["dep:nc-frontend-nengo"]
+frontend-nest = ["dep:nc-frontend-nest"]
+frontend-brian = ["dep:nc-frontend-brian"]
+frontend-bindsnet = ["dep:nc-frontend-bindsnet"]
+frontend-carlsim = ["dep:nc-frontend-carlsim"]
+frontend-genn = ["dep:nc-frontend-genn"]
+frontend-rockpool = ["dep:nc-frontend-rockpool"]
+
+backend-loihi = ["dep:nc-backend-loihi"]
+backend-truenorth = ["dep:nc-backend-truenorth"]
+backend-akida = ["dep:nc-backend-akida"]
+backend-spinnaker = ["dep:nc-backend-spinnaker"]
+backend-neurogrid = ["dep:nc-backend-neurogrid"]
+backend-dynaps = ["dep:nc-backend-dynaps"]
+backend-memxbar = ["dep:nc-backend-memxbar"]
+backend-custom-asic = ["dep:nc-backend-custom-asic"]
+
+sim-neuron = ["dep:nc-sim-neuron"]
+sim-coreneuron = ["dep:nc-sim-coreneuron"]
+sim-arbor = ["dep:nc-sim-arbor"]
+sim-hw-specific = ["dep:nc-sim-hw-specific"]
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+nc-hal = { path = "../hal" }
+nc-nir = { path = "../nir" }
+nc-passes = { path = "../passes" }
+serde_json = { workspace = true }
+nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }
+
+# Optional surface deps (compiled only when features enable them)
+nc-frontend-pynn = { path = "../frontend_pynn", optional = true, package = "nc-frontend-pynn" }
+nc-frontend-nengo = { path = "../frontend_nengo", optional = true, package = "nc-frontend-nengo" }
+nc-frontend-nest = { path = "../frontend_nest", optional = true, package = "nc-frontend-nest" }
+nc-frontend-brian = { path = "../frontend_brian", optional = true, package = "nc-frontend-brian" }
+nc-frontend-bindsnet = { path = "../frontend_bindsnet", optional = true, package = "nc-frontend-bindsnet" }
+nc-frontend-carlsim = { path = "../frontend_carlsim", optional = true, package = "nc-frontend-carlsim" }
+nc-frontend-genn = { path = "../frontend_genn", optional = true, package = "nc-frontend-genn" }
+nc-frontend-rockpool = { path = "../frontend_rockpool", optional = true, package = "nc-frontend-rockpool" }
+
+nc-backend-loihi = { path = "../backend_loihi", optional = true, package = "nc-backend-loihi" }
+nc-backend-truenorth = { path = "../backend_truenorth", optional = true, package = "nc-backend-truenorth" }
+nc-backend-akida = { path = "../backend_akida", optional = true, package = "nc-backend-akida" }
+nc-backend-spinnaker = { path = "../backend_spinnaker", optional = true, package = "nc-backend-spinnaker" }
+nc-backend-neurogrid = { path = "../backend_neurogrid", optional = true, package = "nc-backend-neurogrid" }
+nc-backend-dynaps = { path = "../backend_dynaps", optional = true, package = "nc-backend-dynaps" }
+nc-backend-memxbar = { path = "../backend_memxbar", optional = true, package = "nc-backend-memxbar" }
+nc-backend-custom-asic = { path = "../backend_custom_asic", optional = true, package = "nc-backend-custom-asic" }
+
+nc-sim-neuron = { path = "../sim_neuron", optional = true, package = "nc-sim-neuron" }
+nc-sim-coreneuron = { path = "../sim_coreneuron", optional = true, package = "nc-sim-coreneuron" }
+nc-sim-arbor = { path = "../sim_arbor", optional = true, package = "nc-sim-arbor" }
+nc-sim-hw-specific = { path = "../sim_hw_specific", optional = true, package = "nc-sim-hw-specific" }
+
+nc-mlir-bridge = { path = "../mlir-bridge", optional = true, package = "nc-mlir-bridge" }
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+
+[[bin]]
+name = "neuro-compiler"
+path = "src/main.rs"

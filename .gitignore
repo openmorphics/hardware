@@ -1,0 +1,20 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+/.venv
+/venv
+__pycache__/
+*.py[cod]
+.maturin/
+build/
+dist/
+
+# mdBook output
+docs/book/

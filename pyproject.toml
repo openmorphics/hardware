@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "neuro-compiler"
+version = "0.0.1"
+requires-python = ">=3.8"
+description = "Universal neuromorphic compiler skeleton (Python bindings)"
+license = { text = "UNLICENSED" }
+authors = [{ name = "neuro-compiler contributors" }]
+readme = "README.md"
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Rust",
+  "License :: Other/Proprietary License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+]
+
+[tool.maturin]
+manifest-path = "crates/py/Cargo.toml"
+features = ["python"]
+# manylinux policy and auditwheel can be configured here in future

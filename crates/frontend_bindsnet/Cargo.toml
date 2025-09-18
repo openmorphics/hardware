@@ -1,0 +1,12 @@
+[package]
+name = "nc-frontend-bindsnet"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = { workspace = true }

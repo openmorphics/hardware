@@ -1,0 +1,16 @@
+[package]
+name = "nc-telemetry"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

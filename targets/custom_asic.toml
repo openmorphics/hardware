@@ -1,0 +1,22 @@
+name = "custom_asic"
+vendor = "Custom"
+family = "ASIC"
+version = "0"
+notes = "Expanded target descriptor."
+
+[capabilities]
+on_chip_learning = false
+weight_precisions = [4, 8, 16]
+max_neurons_per_core = 1024
+max_synapses_per_core = 65536
+time_resolution_ns = 1000
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF"]
+max_fan_in = 1024
+max_fan_out = 1024
+core_memory_kib = 512
+interconnect_bandwidth_mbps = 1000
+analog = false
+on_chip_plasticity_rules = ["STDP"]

@@ -1,0 +1,22 @@
+name = "neurogrid"
+vendor = "Stanford"
+family = "Neurogrid"
+version = "1"
+notes = "Expanded target descriptor."
+
+[capabilities]
+on_chip_learning = true
+weight_precisions = [6, 8]
+max_neurons_per_core = 512
+max_synapses_per_core = 32768
+time_resolution_ns = 5000
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF", "AdaptiveLIF"]
+max_fan_in = 512
+max_fan_out = 512
+core_memory_kib = 128
+interconnect_bandwidth_mbps = 500
+analog = true
+on_chip_plasticity_rules = ["STDP", "Homeostasis"]

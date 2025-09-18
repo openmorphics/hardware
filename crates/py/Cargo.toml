@@ -1,0 +1,29 @@
+[package]
+name = "neuro-compiler-py"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+name = "neuro_compiler"
+path = "src/lib.rs"
+# rlib by default; cdylib will be produced when building wheels with maturin + feature.
+crate-type = ["rlib"]
+
+[features]
+default = []
+python = ["pyo3"]
+backend-truenorth = ["dep:nc-backend-truenorth"]
+backend-dynaps = ["dep:nc-backend-dynaps"]
+
+[dependencies]
+anyhow = { workspace = true }
+nc-hal = { path = "../hal" }
+nc-nir = { path = "../nir" }
+pyo3 = { workspace = true, optional = true, features = ["extension-module", "abi3-py38"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+nc-backend-truenorth = { path = "../backend_truenorth", optional = true, package = "nc-backend-truenorth" }
+nc-backend-dynaps = { path = "../backend_dynaps", optional = true, package = "nc-backend-dynaps" }

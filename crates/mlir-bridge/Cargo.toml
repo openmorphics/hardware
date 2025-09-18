@@ -1,0 +1,18 @@
+[package]
+name = "nc-mlir-bridge"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+mlir = []
+
+[dependencies]
+anyhow = { workspace = true }
+nc-nir = { path = "../nir", package = "nc-nir" }
+serde_json = { workspace = true }

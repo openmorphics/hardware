@@ -1,0 +1,3 @@
+# Clippy configuration (sane defaults for a skeleton)
+warns = ["clippy::pedantic"]
+allow-private-module-inception = true

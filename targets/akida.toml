@@ -1,0 +1,22 @@
+name = "akida"
+vendor = "BrainChip"
+family = "Akida"
+version = "2"
+notes = "Expanded target descriptor."
+
+[capabilities]
+on_chip_learning = true
+weight_precisions = [8]
+max_neurons_per_core = 2048
+max_synapses_per_core = 65536
+time_resolution_ns = 1000
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF", "SpikeRate"]
+max_fan_in = 1024
+max_fan_out = 1024
+core_memory_kib = 1024
+interconnect_bandwidth_mbps = 5000
+analog = false
+on_chip_plasticity_rules = ["STDP"]

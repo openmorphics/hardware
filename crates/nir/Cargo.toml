@@ -1,0 +1,22 @@
+[package]
+name = "nc-nir"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+# Enable binary serialization using bincode when requested
+bin = ["bincode"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+indexmap = { workspace = true }
+petgraph = { workspace = true }
+bincode = { workspace = true, optional = true }

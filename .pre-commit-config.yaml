@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/rust-lang/rustfmt
+    rev: stable
+    hooks:
+      - id: rustfmt
+        name: rustfmt
+        entry: cargo fmt --all -- --check
+        language: system
+        types: [rust]
+  - repo: https://github.com/rust-lang/rust-clippy
+    rev: stable
+    hooks:
+      - id: clippy
+        name: clippy
+        entry: bash -lc 'cargo clippy --workspace --all-targets -- -D warnings'
+        language: system
+        types: [rust]
+  - repo: local
+    hooks:
+      - id: cargo-test
+        name: cargo test
+        entry: bash -lc 'cargo test --workspace'
+        language: system
+        types: [rust]

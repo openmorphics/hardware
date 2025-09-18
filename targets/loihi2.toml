@@ -1,0 +1,22 @@
+name = "loihi2"
+vendor = "Intel"
+family = "Loihi"
+version = "2"
+notes = "Expanded target descriptor."
+
+[capabilities]
+on_chip_learning = true
+weight_precisions = [4, 8, 16]
+max_neurons_per_core = 1024
+max_synapses_per_core = 65536
+time_resolution_ns = 1000
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF", "Izhikevich"]
+max_fan_in = 4096
+max_fan_out = 4096
+core_memory_kib = 512
+interconnect_bandwidth_mbps = 10000
+analog = false
+on_chip_plasticity_rules = ["STDP", "R-STDP"]

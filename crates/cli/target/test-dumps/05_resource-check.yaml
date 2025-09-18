@@ -1,0 +1,17 @@
+name: cli-lower-stub
+populations: []
+connections: []
+probes: []
+dialect: null
+attributes:
+  partition:
+    parts: 1
+    strategy: naive
+  placement:
+    status: ok
+  routing:
+    status: ok
+  timing:
+    est_latency_ms: 0.0
+  resource_check:
+    fan_in: []

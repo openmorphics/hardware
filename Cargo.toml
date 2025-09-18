@@ -1,0 +1,106 @@
+# neuro-compiler Cargo workspace
+
+[workspace]
+resolver = "2"
+members = [
+  "crates/nir",
+  "crates/hal",
+  "crates/passes",
+  "crates/runtime",
+  "crates/telemetry",
+  "crates/orchestrator",
+  "crates/mlopt",
+  "crates/mlir-bridge",
+  "crates/cli",
+  "crates/py",
+  "crates/frontend_pynn",
+  "crates/frontend_nengo",
+  "crates/frontend_nest",
+  "crates/frontend_brian",
+  "crates/frontend_bindsnet",
+  "crates/frontend_carlsim",
+  "crates/frontend_genn",
+  "crates/frontend_rockpool",
+  "crates/sim_neuron",
+  "crates/sim_coreneuron",
+  "crates/sim_arbor",
+  "crates/sim_hw_specific",
+  "crates/backend_loihi",
+  "crates/backend_truenorth",
+  "crates/backend_akida",
+  "crates/backend_spinnaker",
+  "crates/backend_neurogrid",
+  "crates/backend_dynaps",
+  "crates/backend_memxbar",
+  "crates/backend_custom_asic",
+  "crates/xtask"
+]
+default-members = [
+  "crates/nir",
+  "crates/hal",
+  "crates/passes",
+  "crates/runtime",
+  "crates/telemetry",
+  "crates/orchestrator",
+  "crates/mlopt",
+  "crates/cli",
+  "crates/py",
+  "crates/xtask"
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+authors = ["neuro-compiler contributors"]
+homepage = "https://example.com/neuro-compiler"
+repository = "https://example.com/neuro-compiler.git"
+description = "Universal neuromorphic compiler skeleton."
+rust-version = "1.79"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "allow"
+
+[profile.dev]
+debug = true
+opt-level = 0
+debug-assertions = true
+overflow-checks = true
+lto = false
+incremental = true
+codegen-units = 256
+
+[profile.release]
+debug = 1
+opt-level = 3
+debug-assertions = false
+overflow-checks = true
+lto = "thin"
+incremental = false
+codegen-units = 1
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+serde_bytes = "0.11"
+toml = "0.8"
+schemars = "0.8"
+indexmap = { version = "2", features = ["serde"] }
+bincode = "1.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+clap = { version = "4", features = ["derive"] }
+petgraph = "0.6"
+pyo3 = { version = "0.21", features = ["extension-module"] }
+
+[workspace.metadata.neuro-compiler]
+mlir_feature_default = false
+notes = "The mlir-bridge crate exists but is excluded from default-members; enable by building the member explicitly or using feature gates inside crates that depend on it."
+
+# Toolchain hints
+[workspace.metadata.rust-version]
+msrv = "1.79"

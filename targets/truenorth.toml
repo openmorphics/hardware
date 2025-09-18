@@ -1,0 +1,22 @@
+name = "truenorth"
+vendor = "IBM"
+family = "TrueNorth"
+version = "1"
+notes = "Expanded target descriptor."
+
+[capabilities]
+on_chip_learning = false
+weight_precisions = [4]
+max_neurons_per_core = 256
+max_synapses_per_core = 16384
+time_resolution_ns = 10000
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF"]
+max_fan_in = 256
+max_fan_out = 256
+core_memory_kib = 256
+interconnect_bandwidth_mbps = 2000
+analog = false
+on_chip_plasticity_rules = ["STDP"]

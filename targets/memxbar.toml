@@ -1,0 +1,22 @@
+name = "memxbar"
+vendor = "Various"
+family = "Memristive Crossbar"
+version = "0"
+notes = "Expanded target descriptor."
+
+[capabilities]
+on_chip_learning = true
+weight_precisions = [1, 2, 4, 8]
+max_neurons_per_core = 4096
+max_synapses_per_core = 262144
+time_resolution_ns = 1000000
+
+# Expanded capabilities
+supports_sparse = false
+neuron_models = ["LIF"]
+max_fan_in = 65536
+max_fan_out = 65536
+core_memory_kib = 2048
+interconnect_bandwidth_mbps = 1000
+analog = true
+on_chip_plasticity_rules = ["Analog-Programming"]

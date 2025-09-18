@@ -1,0 +1,13 @@
+[package]
+name = "nc-mlopt"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+nc-nir = { path = "../nir" }

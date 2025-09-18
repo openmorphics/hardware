@@ -1,0 +1,21 @@
+[package]
+name = "nc-passes"
+version = "0.0.1"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+# Enable binary artifact dumps when NIR binary is enabled
+bin = ["nc-nir/bin"]
+
+[dependencies]
+anyhow = { workspace = true }
+tracing = { workspace = true }
+nc-nir = { path = "../nir" }
+serde_json = { workspace = true }
+nc-hal = { path = "../hal" }
