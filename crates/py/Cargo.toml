@@ -16,6 +16,12 @@ default = []
 python = ["pyo3"]
 backend-truenorth = ["dep:nc-backend-truenorth"]
 backend-dynaps = ["dep:nc-backend-dynaps"]
+# Optional simulator features for Python crate
+sim-neuron = ["dep:nc-sim-neuron"]
+sim-coreneuron = ["dep:nc-sim-coreneuron"]
+sim-arbor = ["dep:nc-sim-arbor"]
+# Optional telemetry integration for Python simulate helpers
+telemetry = ["dep:nc-telemetry", "nc-sim-neuron/telemetry", "nc-sim-coreneuron/telemetry", "nc-sim-arbor/telemetry"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -27,3 +33,9 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 nc-backend-truenorth = { path = "../backend_truenorth", optional = true, package = "nc-backend-truenorth" }
 nc-backend-dynaps = { path = "../backend_dynaps", optional = true, package = "nc-backend-dynaps" }
+# Optional simulator crates
+nc-sim-neuron = { path = "../sim_neuron", optional = true, package = "nc-sim-neuron" }
+nc-sim-coreneuron = { path = "../sim_coreneuron", optional = true, package = "nc-sim-coreneuron" }
+nc-sim-arbor = { path = "../sim_arbor", optional = true, package = "nc-sim-arbor" }
+# Optional telemetry crate for Python simulation profiling
+nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }

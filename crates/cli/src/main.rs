@@ -1,11 +1,19 @@
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 use std::fs;
+#[cfg(feature = "telemetry")]
+use std::collections::BTreeMap;
 
 #[derive(Parser)]
 #[command(name = "neuro-compiler")]
 #[command(about = "Universal neuromorphic compiler (skeleton)")]
 struct Cli {
+    /// Optional OTLP endpoint (overrides NC_OTLP_ENDPOINT) when built with 'telemetry-otlp'
+    #[arg(global = true, long)]
+    otlp_endpoint: Option<String>,
+    /// Optional JSONL profile path (sets NC_PROFILE_JSONL if not set)
+    #[arg(global = true, long)]
+    profile_jsonl: Option<PathBuf>,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -79,6 +87,15 @@ struct SimulateArgs {
     /// Simulator (e.g., neuron, coreneuron, arbor, hw)
     #[arg(long)]
     simulator: String,
+    /// Input NIR file (JSON or YAML)
+    #[arg(long)]
+    input: PathBuf,
+    /// Output directory to write simulator artifacts
+    #[arg(long)]
+    out_dir: Option<PathBuf>,
+    /// Optional JSONL telemetry output path (requires feature 'telemetry')
+    #[arg(long)]
+    profile_jsonl: Option<PathBuf>,
 }
 
 #[derive(Args, Debug)]
@@ -113,10 +130,26 @@ fn main() {
     let cli = Cli::parse();
     let _ = tracing_subscriber::fmt().with_env_filter("info").try_init();
 
+    // If provided globally, set NC_PROFILE_JSONL unless already set (works across subcommands)
+    if let Some(p) = &cli.profile_jsonl {
+        if std::env::var("NC_PROFILE_JSONL").is_err() {
+            if let Some(s) = p.to_str() {
+                std::env::set_var("NC_PROFILE_JSONL", s);
+            }
+        }
+    }
+
+    // Initialize OpenTelemetry exporter if compiled with feature "telemetry-otlp"
+    #[cfg(feature = "telemetry-otlp")]
+    {
+        let endpoint = cli.otlp_endpoint.clone().or_else(|| std::env::var("NC_OTLP_ENDPOINT").ok());
+        let _ = nc_telemetry::init_otel(endpoint.as_deref());
+    }
+
     match cli.command {
         Some(Command::ListTargets) => {
             for t in nc_hal::builtin_targets() {
-                println!("{}", t);
+                println!("{t}");
             }
         }
         Some(Command::Import(args)) => {
@@ -192,13 +225,10 @@ fn main() {
             // Build a trivial graph and run through the pipeline with dumps
             let mut g = nc_nir::Graph::new("cli-lower-stub");
             // If provided, load a HAL manifest via --manifest or --target and attach its path for capability-aware passes
-            let manifest_path: Option<PathBuf> = if let Some(p) = &args.manifest {
-                Some(p.clone())
-            } else if let Some(t) = &args.target {
-                Some(PathBuf::from(format!("targets/{}.toml", t)))
-            } else {
-                None
-            };
+            let manifest_path: Option<PathBuf> = args
+                .manifest
+                .clone()
+                .or_else(|| args.target.as_ref().map(|t| PathBuf::from(format!("targets/{t}.toml"))));
             if let Some(mp) = manifest_path {
                 match nc_hal::parse_target_manifest_path(&mp) {
                     Ok(m) => {
@@ -212,7 +242,7 @@ fn main() {
                         }
                     }
                     Err(e) => {
-                        eprintln!("lower: cannot load manifest {:?}: {e}", mp);
+                        eprintln!("lower: cannot load manifest {mp:?}: {e}");
                     }
                 }
             }
@@ -223,7 +253,7 @@ fn main() {
             match pm.run_with_config(g, &cfg) {
                 Ok(_) => {
                     if let Some(dir) = cfg.dump_dir {
-                        println!("lower completed; artifacts dumped under {:?}", dir);
+                        println!("lower completed; artifacts dumped under {dir:?}");
                     } else {
                         println!("lower completed; no dump_dir specified");
                     }
@@ -258,7 +288,7 @@ fn main() {
                 },
             };
             if let Err(e) = g.validate() {
-                eprintln!("compile: validation failed: {}", e);
+                eprintln!("compile: validation failed: {e}");
                 return;
             }
             g.ensure_version_tag();
@@ -268,7 +298,7 @@ fn main() {
             let manifest = match nc_hal::parse_target_manifest_path(&manifest_path) {
                 Ok(m) => m,
                 Err(e) => {
-                    eprintln!("compile: cannot load manifest {:?}: {e}", manifest_path);
+                    eprintln!("compile: cannot load manifest {manifest_path:?}: {e}");
                     return;
                 }
             };
@@ -383,17 +413,63 @@ fn main() {
                     }
                 }
                 other => {
-                    eprintln!("compile: unsupported or not yet integrated target '{}'", other);
+                    eprintln!("compile: unsupported or not yet integrated target '{other}'");
                 }
             }
         }
         Some(Command::Simulate(args)) => {
+            // Parse input NIR
+            let fmt = args.input.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase());
+            let data = match fs::read_to_string(&args.input) {
+                Ok(d) => d,
+                Err(e) => { eprintln!("simulate: cannot read {:?}: {e}", args.input); return; }
+            };
+            let mut g = match fmt.as_deref() {
+                Some("yaml") | Some("yml") => match nc_nir::Graph::from_yaml_str(&data) {
+                    Ok(g) => g,
+                    Err(e) => { eprintln!("simulate: parse yaml failed: {e}"); return; }
+                },
+                _ => match nc_nir::Graph::from_json_str(&data) {
+                    Ok(g) => g,
+                    Err(e) => { eprintln!("simulate: parse json failed: {e}"); return; }
+                },
+            };
+            if let Err(e) = g.validate() {
+                eprintln!("simulate: validation failed: {e}");
+                return;
+            }
+            g.ensure_version_tag();
+
+            #[cfg(feature = "telemetry")]
+            let app = if let Some(p) = &args.profile_jsonl {
+                nc_telemetry::profiling::Appender::open(p).ok()
+            } else {
+                None
+            };
+
+            #[cfg(feature = "telemetry")]
+            let mut labels = BTreeMap::new();
+            #[cfg(feature = "telemetry")]
+            {
+                labels.insert("simulator".to_string(), args.simulator.clone());
+                labels.insert("graph".to_string(), g.name.clone());
+            }
+
+            let out_dir = args.out_dir.clone().unwrap_or_else(|| PathBuf::from(format!("target/sim-{}-out", args.simulator)));
+            // Mark as used even when simulator features are not enabled to avoid unused warnings.
+            let _ = &out_dir;
+
+            #[cfg(feature = "telemetry")]
+            let __timer_emit = app.as_ref().map(|a| a.start_timer("simulate.emit_ms", labels.clone()));
+
             match args.simulator.as_str() {
                 "neuron" => {
                     #[cfg(feature = "sim-neuron")]
                     {
-                        let r = nc_sim_neuron::stub();
-                        println!("simulate ok: {}", r);
+                        match nc_sim_neuron::emit_artifacts(&g, &out_dir) {
+                            Ok(_) => println!("simulate artifacts written to {:?}", out_dir),
+                            Err(e) => eprintln!("simulate error: {e}")
+                        }
                     }
                     #[cfg(not(feature = "sim-neuron"))]
                     {
@@ -403,8 +479,10 @@ fn main() {
                 "coreneuron" => {
                     #[cfg(feature = "sim-coreneuron")]
                     {
-                        let r = nc_sim_coreneuron::stub();
-                        println!("simulate ok: {}", r);
+                        match nc_sim_coreneuron::emit_artifacts(&g, &out_dir) {
+                            Ok(_) => println!("simulate artifacts written to {:?}", out_dir),
+                            Err(e) => eprintln!("simulate error: {e}")
+                        }
                     }
                     #[cfg(not(feature = "sim-coreneuron"))]
                     {
@@ -414,8 +492,10 @@ fn main() {
                 "arbor" => {
                     #[cfg(feature = "sim-arbor")]
                     {
-                        let r = nc_sim_arbor::stub();
-                        println!("simulate ok: {}", r);
+                        match nc_sim_arbor::emit_artifacts(&g, &out_dir) {
+                            Ok(_) => println!("simulate artifacts written to {:?}", out_dir),
+                            Err(e) => eprintln!("simulate error: {e}")
+                        }
                     }
                     #[cfg(not(feature = "sim-arbor"))]
                     {
@@ -434,7 +514,16 @@ fn main() {
                     }
                 }
                 other => {
-                    println!("simulate unsupported: {}", other);
+                    println!("simulate unsupported: {other}");
+                }
+            }
+
+            #[cfg(feature = "telemetry")]
+            {
+                if let Some(a) = &app {
+                    let _ = a.counter("graph.populations", g.populations.len() as f64, labels.clone());
+                    let _ = a.counter("graph.connections", g.connections.len() as f64, labels.clone());
+                    let _ = a.counter("graph.probes", g.probes.len() as f64, labels.clone());
                 }
             }
         }
@@ -457,7 +546,7 @@ fn main() {
                 }
                 #[cfg(not(feature = "telemetry"))]
                 {
-                    println!("profile stub: input={:?} (build CLI with feature 'telemetry' to summarize JSONL)", path);
+                    println!("profile stub: input={path:?} (build CLI with feature 'telemetry' to summarize JSONL)");
                 }
             } else {
                 println!("profile stub: no input provided");
@@ -502,6 +591,7 @@ fn main() {
             }
             #[cfg(not(feature = "mlir"))]
             {
+                let _ = &args;
                 println!("mlir export requires building CLI with feature 'mlir'");
             }
         }

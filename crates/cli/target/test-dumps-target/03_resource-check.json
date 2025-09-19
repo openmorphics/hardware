@@ -22,15 +22,17 @@
       ],
       "violations": []
     },
-    "routing": {
-      "cross_edges": 0,
-      "estimated_bandwidth_mbps": 0.0,
-      "matrix": [
-        [
-          0
-        ]
+    "resource_check": {
+      "fan_in": [],
+      "fan_out": [],
+      "legal": true,
+      "neurons_per_part": [
+        0
       ],
-      "status": "ok"
+      "synapses_per_part": [
+        0
+      ],
+      "violations": []
     }
   }
 }

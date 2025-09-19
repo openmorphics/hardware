@@ -29,6 +29,10 @@ Capabilities (all optional; if present, validated for >0 where numeric):
 - interconnect_bandwidth_mbps: u32 — on-chip/off-chip bandwidth in Mbps (>0)
 - analog: bool — analog (true) vs digital (false) signaling/compute emphasis
 - on_chip_plasticity_rules: [string] — supported on-chip learning rules (e.g., "STDP")
+- neuron_mem_kib_per: f64 — approximate memory footprint per neuron in KiB (>0.0)
+- syn_mem_kib_per: f64 — approximate memory footprint per synapse in KiB (>0.0)
+- bytes_per_event: u32 — size in bytes per spike/event transferred over interconnect (>0)
+- default_spike_rate_hz: f64 — default spike rate used for coarse bandwidth estimates (>0.0)
 
 Built-in targets (see files under targets/):
 - loihi2, truenorth, akida, spinnaker2, neurogrid, dynaps, memxbar, custom_asic
@@ -41,4 +45,9 @@ Compiler usage:
 Change policy:
 - Adding new optional capability fields is a non-breaking change.
 - Tightening validation or changing semantics requires a version bump and migration notes.
+
+Modeling guidance:
+- neuron_mem_kib_per and syn_mem_kib_per are used by placement/resource passes to estimate per-part memory usage; choose values that reflect implementation detail (e.g., ~10–20B/neuron and ~2–4B/synapse equivalent).
+- bytes_per_event and default_spike_rate_hz drive coarse interconnect bandwidth estimation in the routing pass; prefer conservative over-estimates for safety.
+- Omitted fields fall back to conservative defaults; prefer specifying all modeling fields for accurate diagnostics on real hardware.
 

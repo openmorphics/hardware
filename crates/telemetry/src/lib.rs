@@ -2,9 +2,49 @@ pub fn init() {
     let _ = tracing_subscriber::fmt().with_env_filter("info").try_init();
 }
 
-/// Initialize OpenTelemetry exporter (stub; no-op).
+/// Initialize OpenTelemetry exporter.
+/// When compiled with feature "otlp", sets up a basic OTLP HTTP/proto pipeline.
+/// The endpoint can be provided through the parameter or via the NC_OTLP_ENDPOINT env var.
+/// If not compiled with "otlp", this function is a no-op that returns Ok(()).
 pub fn init_otel(_endpoint: Option<&str>) -> anyhow::Result<()> {
-    // Future: configure an OTLP exporter when feature-flagged.
+    #[cfg(feature = "otlp")]
+    {
+        use opentelemetry::{global, sdk::trace as sdktrace};
+        use opentelemetry_otlp::WithExportConfig;
+
+        // Resolve endpoint
+        let endpoint = _endpoint
+            .map(|s| s.to_string())
+            .or_else(|| std::env::var("NC_OTLP_ENDPOINT").ok())
+            .unwrap_or_else(|| "http://localhost:4317".to_string());
+
+        // Build exporter using HTTP/proto to avoid extra runtimes
+        let exporter = opentelemetry_otlp::new_exporter()
+            .http()
+            .with_endpoint(endpoint);
+
+        // Simple (non-batch) pipeline to avoid runtime requirements
+        let tracer = opentelemetry_otlp::new_pipeline()
+            .tracing()
+            .with_trace_config(
+                sdktrace::Config::default()
+            )
+            .with_exporter(exporter)
+            .install_simple()?;
+
+        // Install tracing layer
+        let _ = tracing_subscriber::registry()
+            .with(tracing_opentelemetry::layer().with_tracer(tracer))
+            .try_init();
+
+        // Ensure global shutdown on drop
+        let _ = std::panic::catch_unwind(|| {
+            // register atexit hook
+            ctrlc::set_handler(|| {
+                let _ = global::shutdown_tracer_provider();
+            }).ok();
+        });
+    }
     Ok(())
 }
 
@@ -116,20 +156,89 @@ pub mod profiling {
         let f = std::fs::File::open(path)?;
         let rdr = std::io::BufReader::new(f);
         let mut stats: std::collections::HashMap<String, (usize, f64, f64, f64)> = std::collections::HashMap::new();
-        for line in rdr.lines() {
-            if let Ok(l) = line {
-                if l.trim().is_empty() { continue; }
-                if let Ok(rec) = serde_json::from_str::<ProfileRecord>(&l) {
-                    let e = stats.entry(rec.metric.clone())
-                        .or_insert((0, 0.0, f64::INFINITY, f64::NEG_INFINITY));
-                    e.0 += 1;
-                    e.1 += rec.value;
-                    if rec.value < e.2 { e.2 = rec.value; }
-                    if rec.value > e.3 { e.3 = rec.value; }
-                }
+        for l in rdr.lines().map_while(Result::ok) {
+            if l.trim().is_empty() { continue; }
+            if let Ok(rec) = serde_json::from_str::<ProfileRecord>(&l) {
+                let e = stats.entry(rec.metric.clone())
+                    .or_insert((0, 0.0, f64::INFINITY, f64::NEG_INFINITY));
+                e.0 += 1;
+                e.1 += rec.value;
+                if rec.value < e.2 { e.2 = rec.value; }
+                if rec.value > e.3 { e.3 = rec.value; }
             }
         }
         Ok(stats)
+    }
+}
+
+/// Standardized label constructors to enforce a consistent label schema across the workspace.
+/// Keys used consistently:
+/// - "graph": logical graph/model name
+/// - "backend": backend identifier (e.g., "loihi", "truenorth")
+/// - "target": HAL manifest name (e.g., "loihi2")
+/// - "simulator": simulator identifier (e.g., "neuron", "coreneuron", "arbor")
+/// - "pass": compiler pass name
+pub mod labels {
+    use std::collections::BTreeMap;
+
+    /// Return an empty, ordered label map.
+    pub fn empty() -> BTreeMap<String, String> {
+        BTreeMap::new()
+    }
+
+    /// Create labels with graph name.
+    pub fn graph(graph: &str) -> BTreeMap<String, String> {
+        let mut m = BTreeMap::new();
+        m.insert("graph".to_string(), graph.to_string());
+        m
+    }
+
+    /// Create labels with target name.
+    pub fn target(target: &str) -> BTreeMap<String, String> {
+        let mut m = BTreeMap::new();
+        m.insert("target".to_string(), target.to_string());
+        m
+    }
+
+    /// Create labels for a backend compile event.
+    /// Includes: graph, backend, and optional target.
+    pub fn backend(graph_name: &str, backend: &str, target: Option<&str>) -> BTreeMap<String, String> {
+        let mut m = graph(graph_name);
+        m.insert("backend".to_string(), backend.to_string());
+        if let Some(t) = target {
+            m.insert("target".to_string(), t.to_string());
+        }
+        m
+    }
+
+    /// Create labels for a simulator emit event.
+    /// Includes: graph and simulator.
+    pub fn simulator(graph_name: &str, simulator: &str) -> BTreeMap<String, String> {
+        let mut m = graph(graph_name);
+        m.insert("simulator".to_string(), simulator.to_string());
+        m
+    }
+
+    /// Create labels for a compiler pass execution event.
+    /// Includes: graph and pass.
+    pub fn pass(graph_name: &str, pass: &str) -> BTreeMap<String, String> {
+        let mut m = graph(graph_name);
+        m.insert("pass".to_string(), pass.to_string());
+        m
+    }
+
+    /// Merge two label maps; values in `rhs` override `lhs` on key collisions.
+    pub fn merge(mut lhs: BTreeMap<String, String>, rhs: BTreeMap<String, String>) -> BTreeMap<String, String> {
+        for (k, v) in rhs {
+            lhs.insert(k, v);
+        }
+        lhs
+    }
+
+    /// Convenience to add or override a single (k,v) pair.
+    pub fn with(mut m: BTreeMap<String, String>, key: &str, val: &str) -> BTreeMap<String, String> {
+        m.insert(key.to_string(), val.to_string());
+        m
     }
 }
 

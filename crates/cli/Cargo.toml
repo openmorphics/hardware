@@ -37,7 +37,9 @@ sims-all = [
 all-surfaces = ["frontends-all", "backends-all", "sims-all"]
 mlir = ["dep:nc-mlir-bridge", "nc-mlir-bridge/mlir"]
 bin-artifacts = ["nc-passes/bin"]
-telemetry = ["dep:nc-telemetry"]
+telemetry = ["dep:nc-telemetry", "nc-passes/telemetry", "nc-sim-neuron/telemetry", "nc-sim-coreneuron/telemetry", "nc-sim-arbor/telemetry", "nc-sim-hw-specific/telemetry"]
+# Enable OpenTelemetry OTLP exporter through telemetry crate
+telemetry-otlp = ["telemetry", "nc-telemetry/otlp"]
 
 # Leaf features mapping to optional deps
 frontend-pynn = ["dep:nc-frontend-pynn"]
@@ -103,6 +105,7 @@ nc-mlir-bridge = { path = "../mlir-bridge", optional = true, package = "nc-mlir-
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
+serde_json = { workspace = true }
 
 [[bin]]
 name = "neuro-compiler"

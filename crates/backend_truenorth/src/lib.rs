@@ -14,6 +14,21 @@ pub fn compile(graph: &nc_nir::Graph, manifest: &nc_hal::TargetManifest) -> Resu
     graph.validate().map_err(|e| anyhow::anyhow!(e.to_string()))?;
     nc_hal::validate_manifest(manifest)?;
 
+    // Optional telemetry profiling
+    #[cfg(feature = "telemetry")]
+    let app = std::env::var("NC_PROFILE_JSONL")
+        .ok()
+        .and_then(|p| nc_telemetry::profiling::Appender::open(p).ok());
+    #[cfg(feature = "telemetry")]
+    let _timer = {
+        if let Some(a) = app.as_ref() {
+            let labels = nc_telemetry::labels::backend(&graph.name, "truenorth", Some(&manifest.name));
+            Some(a.start_timer("backend.compile_ms", labels))
+        } else {
+            None
+        }
+    };
+
     let bits = manifest
         .capabilities
         .as_ref()
@@ -40,5 +55,14 @@ pub fn compile(graph: &nc_nir::Graph, manifest: &nc_hal::TargetManifest) -> Resu
         "graph": graph.name,
         "connections": conns
     });
+
+    #[cfg(feature = "telemetry")]
+    if let Some(a) = &app {
+        let l = nc_telemetry::labels::backend(&graph.name, "truenorth", Some(&manifest.name));
+        let _ = a.counter("graph.populations", graph.populations.len() as f64, l.clone());
+        let _ = a.counter("graph.connections", graph.connections.len() as f64, l.clone());
+        let _ = a.counter("graph.probes", graph.probes.len() as f64, l);
+    }
+
     Ok(serde_json::to_string_pretty(&obj)?)
 }

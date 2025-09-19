@@ -62,6 +62,10 @@ The IR graph dumps are round-trippable via [crates/nir/src/lib.rs](crates/nir/sr
 
 A JSON Lines schema for profiling is defined in [crates/telemetry/src/lib.rs](crates/telemetry/src/lib.rs) (module `profiling`) and documented in [docs/metrics/profiling.md](docs/metrics/profiling.md). Emit profile records as JSONL using the helper and visualize with Python (Altair/Matplotlib) following the doc’s example.
 
+CLI telemetry flags:
+- --profile-jsonl / NC_PROFILE_JSONL to write JSONL timers/counters
+- --otlp-endpoint / NC_OTLP_ENDPOINT (when built with 'telemetry-otlp') to export traces via OTLP
+
 ## Python API versioning policy
 
 - The Python package uses a stable ABI3 wheel (built with pyo3 `abi3-py38`), targeting Python ≥ 3.8.

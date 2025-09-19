@@ -1,3 +1,4 @@
 # Clippy configuration (sane defaults for a skeleton)
-warns = ["clippy::pedantic"]
+# Note: enable Clippy lints via CLI (e.g., `cargo clippy -- -W clippy::pedantic`)
+# or configure in Cargo.toml under [workspace.lints.clippy] if supported by your toolchain.
 allow-private-module-inception = true

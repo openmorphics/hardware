@@ -3,6 +3,17 @@ pub use nc_nir as nir;
 use nc_hal as hal;
 use std::fs;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+#[cfg(feature = "telemetry")]
+use std::collections::BTreeMap;
+#[cfg(feature = "telemetry")]
+use nc_telemetry as telemetry;
+
+#[derive(Debug, Error)]
+pub enum PassError {
+    #[error("mapping violation: {0}")]
+    Mapping(&'static str),
+}
 
 pub trait Pass {
     fn name(&self) -> &str;
@@ -76,8 +87,8 @@ impl Pass for PartitionPass {
             let total_neurons: usize = g.populations.iter().map(|p| p.size as usize).sum();
             let total_synapses: usize = g.connections.len();
 
-            let parts_by_neurons = if max_neurons > 0 { (total_neurons + max_neurons - 1) / max_neurons } else { 1 };
-            let parts_by_syn = if max_syn > 0 { (total_synapses + max_syn - 1) / max_syn } else { 1 };
+            let parts_by_neurons = if max_neurons > 0 { total_neurons.div_ceil(max_neurons) } else { 1 };
+            let parts_by_syn = if max_syn > 0 { total_synapses.div_ceil(max_syn) } else { 1 };
             parts = parts_by_neurons.max(parts_by_syn).max(1);
 
             // Greedy size-balanced assignment
@@ -85,14 +96,12 @@ impl Pass for PartitionPass {
             let mut pops: Vec<(String, usize)> = g.populations.iter().map(|p| (p.name.clone(), p.size as usize)).collect();
             pops.sort_by_key(|(_, s)| std::cmp::Reverse(*s));
             for (name, sz) in pops {
-                let mut idx = 0usize;
-                let mut min_val = buckets[0];
-                for i in 1..parts {
-                    if buckets[i] < min_val {
-                        min_val = buckets[i];
-                        idx = i;
-                    }
-                }
+                let idx = buckets
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|&(_, &v)| v)
+                    .map(|(i, _)| i)
+                    .unwrap_or(0);
                 if max_neurons > 0 && sz > max_neurons {
                     violations.push(serde_json::json!({
                         "code": "POP_EXCEEDS_MAX_NEURONS_PER_CORE",
@@ -105,8 +114,7 @@ impl Pass for PartitionPass {
                 assignment.push((name, idx));
             }
         } else {
-            // Naive: single part, trivial assignment
-            parts = 1;
+            // Naive: single part, trivial assignment (use initial default of 1)
             assignment = g.populations.iter().map(|p| (p.name.clone(), 0usize)).collect();
         }
 
@@ -160,18 +168,18 @@ impl Pass for PlacementPass {
             }
         }
 
-        // Simple memory model (placeholder)
-        let neuron_mem_kib = 1usize;
-        let syn_mem_kib = 0usize;
-
+        // Target-aware memory model (fallback to coarse defaults if unspecified)
         let caps = extract_caps_from_graph(&g);
-        let core_mem_cap = caps.as_ref().and_then(|c| c.core_memory_kib).map(|v| v as usize);
+        let neuron_mem_kib: f64 = caps.as_ref().and_then(|c| c.neuron_mem_kib_per).unwrap_or(0.01); // ~10B/neuron
+        let syn_mem_kib: f64 = caps.as_ref().and_then(|c| c.syn_mem_kib_per).unwrap_or(0.001);      // ~1B/synapse
+        let core_mem_cap: Option<f64> = caps.as_ref().and_then(|c| c.core_memory_kib).map(|v| v as f64);
         let max_fan_in = caps.as_ref().and_then(|c| c.max_fan_in).map(|v| v as usize);
         let max_fan_out = caps.as_ref().and_then(|c| c.max_fan_out).map(|v| v as usize);
 
         let mut violations: Vec<serde_json::Value> = Vec::new();
         for part in 0..parts {
-            let mem = neurons_per_part[part] * neuron_mem_kib + syn_per_part[part] * syn_mem_kib;
+            let mem: f64 = (neurons_per_part[part] as f64) * neuron_mem_kib
+                + (syn_per_part[part] as f64) * syn_mem_kib;
             if let Some(cap) = core_mem_cap {
                 if mem > cap {
                     violations.push(serde_json::json!({
@@ -235,7 +243,63 @@ pub struct RoutingPass;
 impl Pass for RoutingPass {
     fn name(&self) -> &str { "routing" }
     fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
-        let meta = serde_json::json!({ "status": "ok" });
+        // Load partition assignment
+        let parts = g.attributes
+            .get("partition")
+            .and_then(|v| v.get("parts"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1) as usize;
+
+        let mut pop_to_part: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        if let Some(assign) = g.attributes
+            .get("partition")
+            .and_then(|v| v.get("assignment"))
+            .and_then(|v| v.as_array())
+        {
+            for a in assign {
+                if let (Some(pop), Some(part)) = (
+                    a.get("population").and_then(|x| x.as_str()),
+                    a.get("part").and_then(|x| x.as_u64()),
+                ) {
+                    pop_to_part.insert(pop.to_string(), part as usize);
+                }
+            }
+        } else {
+            for p in &g.populations {
+                pop_to_part.insert(p.name.clone(), 0usize);
+            }
+        }
+
+        // Count inter-part edges
+        let mut matrix = vec![vec![0usize; parts]; parts];
+        let mut cross_edges = 0usize;
+        for c in &g.connections {
+            let i = *pop_to_part.get(&c.pre).unwrap_or(&0usize);
+            let j = *pop_to_part.get(&c.post).unwrap_or(&0usize);
+            if i != j {
+                matrix[i][j] += 1;
+                cross_edges += 1;
+            }
+        }
+
+        // Bandwidth estimate against HAL cap using per-event size and default rate
+        let caps = extract_caps_from_graph(&g);
+        let cap_bw = caps.as_ref().and_then(|c| c.interconnect_bandwidth_mbps).map(|v| v as f64);
+        let bytes_per_event = caps.as_ref().and_then(|c| c.bytes_per_event).unwrap_or(4) as f64;
+        let event_rate_hz = caps.as_ref().and_then(|c| c.default_spike_rate_hz).unwrap_or(100.0);
+        // Estimate: each cross-part edge contributes event_rate_hz spikes/s of size bytes_per_event
+        let est_bw_mbps = (cross_edges as f64) * event_rate_hz * bytes_per_event * 8.0 / 1_000_000.0;
+        let status = match cap_bw {
+            Some(cap) if est_bw_mbps > cap => "congested",
+            _ => "ok",
+        };
+
+        let meta = serde_json::json!({
+            "status": status,
+            "cross_edges": cross_edges,
+            "estimated_bandwidth_mbps": est_bw_mbps,
+            "matrix": matrix,
+        });
         g.attributes.insert("routing".to_string(), meta);
         Ok(g)
     }
@@ -245,9 +309,24 @@ pub struct TimingPass;
 impl Pass for TimingPass {
     fn name(&self) -> &str { "timing" }
     fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
-        // Extremely rough placeholder: 0.01ms per connection
-        let est_latency_ms = (g.connections.len() as f64) * 0.01f64;
-        let meta = serde_json::json!({ "est_latency_ms": est_latency_ms });
+        // Use HAL time resolution to translate per-edge delay to discrete ticks
+        let caps = extract_caps_from_graph(&g);
+        let time_res_ns: u64 = caps.as_ref().and_then(|c| c.time_resolution_ns).unwrap_or(1_000_000); // default 1ms
+        let mut ticks: Vec<u64> = Vec::new();
+        for c in &g.connections {
+            let ns = (c.delay_ms.max(0.0) as f64) * 1_000_000.0;
+            let t = (ns / (time_res_ns as f64)).ceil() as u64;
+            ticks.push(t);
+        }
+        let max_ticks = ticks.iter().copied().max().unwrap_or(0);
+        let min_ticks = ticks.iter().copied().min().unwrap_or(0);
+        let avg_ticks = if ticks.is_empty() { 0.0 } else { (ticks.iter().copied().sum::<u64>() as f64) / (ticks.len() as f64) };
+        let meta = serde_json::json!({
+            "time_resolution_ns": time_res_ns,
+            "max_delay_ticks": max_ticks,
+            "min_delay_ticks": min_ticks,
+            "avg_delay_ticks": avg_ticks
+        });
         g.attributes.insert("timing".to_string(), meta);
         Ok(g)
     }
@@ -257,16 +336,104 @@ pub struct ResourceCheckPass;
 impl Pass for ResourceCheckPass {
     fn name(&self) -> &str { "resource-check" }
     fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
-        // Compute simple fan-in per post population and attach as attributes
-        let mut fan_in: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+        let caps = extract_caps_from_graph(&g);
+
+        // Partition context
+        let parts = g.attributes.get("partition").and_then(|v| v.get("parts")).and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+        let mut pop_to_part: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        if let Some(assign) = g.attributes.get("partition").and_then(|v| v.get("assignment")).and_then(|v| v.as_array()) {
+            for a in assign {
+                if let (Some(pop), Some(part)) = (a.get("population").and_then(|x| x.as_str()), a.get("part").and_then(|x| x.as_u64())) {
+                    pop_to_part.insert(pop.to_string(), part as usize);
+                }
+            }
+        } else {
+            for p in &g.populations { pop_to_part.insert(p.name.clone(), 0usize); }
+        }
+
+        // Per-part resources
+        let mut neurons_per_part = vec![0usize; parts];
+        let mut syn_per_part = vec![0usize; parts];
+        for p in &g.populations {
+            let part = *pop_to_part.get(&p.name).unwrap_or(&0usize);
+            neurons_per_part[part] += p.size as usize;
+        }
         for c in &g.connections {
+            let i = *pop_to_part.get(&c.pre).unwrap_or(&0usize);
+            let j = *pop_to_part.get(&c.post).unwrap_or(&0usize);
+            if i == j { syn_per_part[i] += 1; }
+        }
+
+        // Fan in/out
+        let mut fan_in: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut fan_out: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        for c in &g.connections {
+            *fan_out.entry(c.pre.clone()).or_insert(0) += 1;
             *fan_in.entry(c.post.clone()).or_insert(0) += 1;
         }
-        let summary: Vec<serde_json::Value> = fan_in
-            .iter()
-            .map(|(k, v)| serde_json::json!({ "population": k, "fan_in": v }))
-            .collect();
-        let meta = serde_json::json!({ "fan_in": summary });
+
+        // Violations against HAL caps
+        let mut violations: Vec<serde_json::Value> = Vec::new();
+        if let Some(c) = caps {
+            if let Some(maxn) = c.max_neurons_per_core {
+                for (i, n) in neurons_per_part.iter().enumerate() {
+                    if (*n as u32) > maxn {
+                        violations.push(serde_json::json!({
+                            "code": "MAX_NEURONS_PER_CORE_EXCEEDED",
+                            "part": i,
+                            "neurons": n,
+                            "cap": maxn
+                        }));
+                    }
+                }
+            }
+            if let Some(maxs) = c.max_synapses_per_core {
+                for (i, s) in syn_per_part.iter().enumerate() {
+                    if (*s as u32) > maxs {
+                        violations.push(serde_json::json!({
+                            "code": "MAX_SYNAPSES_PER_CORE_EXCEEDED",
+                            "part": i,
+                            "synapses": s,
+                            "cap": maxs
+                        }));
+                    }
+                }
+            }
+            if let Some(cap) = c.max_fan_in {
+                for (pop, v) in &fan_in {
+                    if (*v as u32) > cap {
+                        violations.push(serde_json::json!({
+                            "code": "MAX_FAN_IN_EXCEEDED",
+                            "population": pop,
+                            "fan_in": v,
+                            "cap": cap
+                        }));
+                    }
+                }
+            }
+            if let Some(cap) = c.max_fan_out {
+                for (pop, v) in &fan_out {
+                    if (*v as u32) > cap {
+                        violations.push(serde_json::json!({
+                            "code": "MAX_FAN_OUT_EXCEEDED",
+                            "population": pop,
+                            "fan_out": v,
+                            "cap": cap
+                        }));
+                    }
+                }
+            }
+        }
+
+        let legal = violations.is_empty();
+        let meta = serde_json::json!({
+            "legal": legal,
+            "neurons_per_part": neurons_per_part,
+            "synapses_per_part": syn_per_part,
+            "fan_in": fan_in.iter().map(|(k,v)| serde_json::json!({"population": k, "fan_in": v})).collect::<Vec<_>>(),
+            "fan_out": fan_out.iter().map(|(k,v)| serde_json::json!({"population": k, "fan_out": v})).collect::<Vec<_>>(),
+            "violations": violations
+        });
         g.attributes.insert("resource_check".to_string(), meta);
         Ok(g)
     }
@@ -311,16 +478,41 @@ impl PassManager {
     }
 
     pub fn run_with_config(&self, mut g: nir::Graph, cfg: &PipelineConfig) -> Result<nir::Graph> {
-        let mut idx = 0usize;
-        for p in &self.passes {
+        #[cfg(feature = "telemetry")]
+        let app = std::env::var("NC_PROFILE_JSONL")
+            .ok()
+            .and_then(|p| telemetry::profiling::Appender::open(p).ok());
+
+        for (idx, p) in self.passes.iter().enumerate() {
+            #[cfg(feature = "telemetry")]
+            let _timer = {
+                if let Some(a) = app.as_ref() {
+                    let labels = telemetry::labels::pass(&g.name, p.name());
+                    Some(a.start_timer("passes.pass_ms", labels))
+                } else {
+                    None
+                }
+            };
+
             g = p.run(g)?;
             if let Some(dir) = &cfg.dump_dir {
                 dump_graph(&g, dir, idx, p.name(), &cfg.dump_formats)?;
             }
-            idx += 1;
+
+            #[cfg(feature = "telemetry")]
+            if let Some(a) = &app {
+                let l = telemetry::labels::pass(&g.name, p.name());
+                let _ = a.counter("graph.populations", g.populations.len() as f64, l.clone());
+                let _ = a.counter("graph.connections", g.connections.len() as f64, l.clone());
+                let _ = a.counter("graph.probes", g.probes.len() as f64, l);
+            }
         }
         Ok(g)
     }
+}
+
+impl Default for PassManager {
+    fn default() -> Self { Self::new() }
 }
 
 fn dump_graph(g: &nir::Graph, dir: &Path, idx: usize, pass: &str, fmts: &[DumpFormat]) -> Result<()> {

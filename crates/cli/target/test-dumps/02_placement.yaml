@@ -5,7 +5,15 @@ probes: []
 dialect: null
 attributes:
   partition:
+    assignment: []
     parts: 1
     strategy: naive
+    violations: []
   placement:
+    neurons_per_part:
+    - 0
+    parts: 1
     status: ok
+    synapses_per_part:
+    - 0
+    violations: []

@@ -2,6 +2,13 @@ use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use anyhow::bail;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum HalError {
+    #[error("invalid manifest field: {field} ({msg})")]
+    InvalidField { field: &'static str, msg: &'static str },
+}
 
 #[derive(Debug, Clone)]
 pub struct TargetDescriptor {
@@ -40,6 +47,16 @@ pub struct Capabilities {
     pub interconnect_bandwidth_mbps: Option<u32>,
     pub analog: Option<bool>,
     pub on_chip_plasticity_rules: Option<Vec<String>>,
+
+    // Resource and traffic modeling (optional; used by mapping passes)
+    /// Approximate KiB required per neuron on this target
+    pub neuron_mem_kib_per: Option<f64>,
+    /// Approximate KiB required per synapse on this target
+    pub syn_mem_kib_per: Option<f64>,
+    /// Bytes per spike/event transferred across interconnect
+    pub bytes_per_event: Option<u32>,
+    /// Default spike rate per connection (Hz) used for coarse bandwidth estimates
+    pub default_spike_rate_hz: Option<f64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -85,7 +102,7 @@ pub fn validate_manifest(m: &TargetManifest) -> anyhow::Result<()> {
     }
     if let Some(c) = &m.capabilities {
         if let Some(wp) = &c.weight_precisions {
-            if wp.iter().any(|&w| w == 0) {
+            if wp.contains(&0) {
                 bail!("capabilities.weight_precisions entries must be > 0");
             }
         }
@@ -122,6 +139,26 @@ pub fn validate_manifest(m: &TargetManifest) -> anyhow::Result<()> {
         if let Some(v) = c.interconnect_bandwidth_mbps {
             if v == 0 {
                 bail!("capabilities.interconnect_bandwidth_mbps must be > 0");
+            }
+        }
+        if let Some(v) = c.neuron_mem_kib_per {
+            if v <= 0.0 {
+                bail!("capabilities.neuron_mem_kib_per must be > 0");
+            }
+        }
+        if let Some(v) = c.syn_mem_kib_per {
+            if v <= 0.0 {
+                bail!("capabilities.syn_mem_kib_per must be > 0");
+            }
+        }
+        if let Some(v) = c.bytes_per_event {
+            if v == 0 {
+                bail!("capabilities.bytes_per_event must be > 0");
+            }
+        }
+        if let Some(v) = c.default_spike_rate_hz {
+            if v <= 0.0 {
+                bail!("capabilities.default_spike_rate_hz must be > 0");
             }
         }
     }

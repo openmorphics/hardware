@@ -20,3 +20,9 @@ core_memory_kib = 512
 interconnect_bandwidth_mbps = 2500
 analog = false
 on_chip_plasticity_rules = []
+
+# Modeling hints
+neuron_mem_kib_per = 0.015
+syn_mem_kib_per = 0.003
+bytes_per_event = 4
+default_spike_rate_hz = 100.0

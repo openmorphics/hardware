@@ -12,10 +12,13 @@ path = "src/lib.rs"
 default = []
 # Enable binary artifact dumps when NIR binary is enabled
 bin = ["nc-nir/bin"]
+telemetry = ["dep:nc-telemetry"]
 
 [dependencies]
 anyhow = { workspace = true }
 tracing = { workspace = true }
 nc-nir = { path = "../nir" }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
 nc-hal = { path = "../hal" }
+nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }

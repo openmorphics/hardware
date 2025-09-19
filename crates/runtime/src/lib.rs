@@ -1,4 +1,8 @@
 use anyhow::Result;
+#[cfg(feature = "telemetry")]
+use nc_telemetry as telemetry;
+#[cfg(feature = "telemetry")]
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct DeploySpec {
@@ -11,14 +15,53 @@ pub struct RuntimeStatus {
 }
 
 pub fn deploy(_spec: &DeploySpec) -> Result<()> {
+    #[cfg(feature = "telemetry")]
+    let app = std::env::var("NC_PROFILE_JSONL")
+        .ok()
+        .and_then(|p| telemetry::profiling::Appender::open(p).ok());
+
+    #[cfg(feature = "telemetry")]
+    let _timer = {
+        if let Some(a) = app.as_ref() {
+            let mut labels = BTreeMap::new();
+            labels.insert("target".to_string(), _spec.target.clone());
+            Some(a.start_timer("runtime.deploy_ms", labels))
+        } else { None }
+    };
+
+    #[cfg(feature = "telemetry")]
+    if let Some(a) = &app {
+        let mut l = BTreeMap::new();
+        l.insert("target".to_string(), _spec.target.clone());
+        let _ = a.counter("runtime.deploy_requests", 1.0, l);
+    }
+
     Ok(())
 }
 
 pub fn start() -> Result<()> {
+    #[cfg(feature = "telemetry")]
+    let app = std::env::var("NC_PROFILE_JSONL")
+        .ok()
+        .and_then(|p| telemetry::profiling::Appender::open(p).ok());
+    #[cfg(feature = "telemetry")]
+    let _t = app.as_ref().map(|a| {
+        let labels = BTreeMap::new();
+        a.start_timer("runtime.start_ms", labels)
+    });
     Ok(())
 }
 
 pub fn stop() -> Result<()> {
+    #[cfg(feature = "telemetry")]
+    let app = std::env::var("NC_PROFILE_JSONL")
+        .ok()
+        .and_then(|p| telemetry::profiling::Appender::open(p).ok());
+    #[cfg(feature = "telemetry")]
+    let _t = app.as_ref().map(|a| {
+        let labels = BTreeMap::new();
+        a.start_timer("runtime.stop_ms", labels)
+    });
     Ok(())
 }
 

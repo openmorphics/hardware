@@ -8,7 +8,12 @@ publish = false
 [lib]
 path = "src/lib.rs"
 
+[features]
+default = []
+telemetry = ["dep:nc-telemetry"]
+
 [dependencies]
 anyhow = { workspace = true }
 tracing = { workspace = true }
 nc-nir = { path = "../nir" }
+nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }
