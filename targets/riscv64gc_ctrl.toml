@@ -1,0 +1,53 @@
+name = "riscv64gc_ctrl"
+vendor = "Generic"
+family = "RISC-V"
+version = "1"
+notes = "RV64GC Linux control-plane target to drive a neuromorphic accelerator via MMIO/DMA."
+
+[capabilities]
+on_chip_learning = false
+weight_precisions = [8, 16, 32]
+max_neurons_per_core = 100000000
+max_synapses_per_core = 100000000
+time_resolution_ns = 1
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF"]
+max_fan_in = 1000000
+max_fan_out = 1000000
+core_memory_kib = 1048576
+interconnect_bandwidth_mbps = 25000
+analog = false
+on_chip_plasticity_rules = []
+
+# Modeling hints
+neuron_mem_kib_per = 0.00001
+syn_mem_kib_per = 0.000001
+bytes_per_event = 128
+default_spike_rate_hz = 50.0
+
+# CPU/RISC-V optional fields
+isa = "rv64gc"
+abi = "lp64d"
+has_a = true
+has_c = true
+has_f = true
+has_d = true
+has_vector = false
+has_zicntr = true
+has_zihpm = true
+
+# Memory/layout
+endianness = "little"
+cacheline_bytes = 64
+page_size_bytes = 4096
+code_model = "medany"
+
+# MMIO/DMA and profile
+mmio_supported = true
+mmio_base_addr = 1073741824   # 0x40000000
+mmio_width_bits = 64
+dma_supported = true
+dma_alignment = 64
+profile = "control_plane"

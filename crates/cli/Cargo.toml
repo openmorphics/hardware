@@ -27,6 +27,7 @@ backends-all = [
   "backend-dynaps",
   "backend-memxbar",
   "backend-custom-asic",
+  "backend-riscv",
 ]
 sims-all = [
   "sim-neuron",
@@ -50,7 +51,6 @@ frontend-bindsnet = ["dep:nc-frontend-bindsnet"]
 frontend-carlsim = ["dep:nc-frontend-carlsim"]
 frontend-genn = ["dep:nc-frontend-genn"]
 frontend-rockpool = ["dep:nc-frontend-rockpool"]
-
 backend-loihi = ["dep:nc-backend-loihi"]
 backend-truenorth = ["dep:nc-backend-truenorth"]
 backend-akida = ["dep:nc-backend-akida"]
@@ -59,6 +59,8 @@ backend-neurogrid = ["dep:nc-backend-neurogrid"]
 backend-dynaps = ["dep:nc-backend-dynaps"]
 backend-memxbar = ["dep:nc-backend-memxbar"]
 backend-custom-asic = ["dep:nc-backend-custom-asic"]
+backend-riscv = ["dep:nc-backend-riscv"]
+
 
 sim-neuron = ["dep:nc-sim-neuron"]
 sim-coreneuron = ["dep:nc-sim-coreneuron"]
@@ -94,6 +96,7 @@ nc-backend-neurogrid = { path = "../backend_neurogrid", optional = true, package
 nc-backend-dynaps = { path = "../backend_dynaps", optional = true, package = "nc-backend-dynaps" }
 nc-backend-memxbar = { path = "../backend_memxbar", optional = true, package = "nc-backend-memxbar" }
 nc-backend-custom-asic = { path = "../backend_custom_asic", optional = true, package = "nc-backend-custom-asic" }
+nc-backend-riscv = { path = "../backend_riscv", optional = true, package = "nc-backend-riscv" }
 
 nc-sim-neuron = { path = "../sim_neuron", optional = true, package = "nc-sim-neuron" }
 nc-sim-coreneuron = { path = "../sim_coreneuron", optional = true, package = "nc-sim-coreneuron" }

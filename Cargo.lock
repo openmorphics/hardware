@@ -630,6 +630,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nc-backend-riscv"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "nc-hal",
+ "nc-nir",
+ "nc-passes",
+ "nc-telemetry",
+ "serde_json",
+]
+
+[[package]]
 name = "nc-backend-spinnaker"
 version = "0.0.1"
 dependencies = [
@@ -845,6 +857,7 @@ dependencies = [
  "nc-backend-loihi",
  "nc-backend-memxbar",
  "nc-backend-neurogrid",
+ "nc-backend-riscv",
  "nc-backend-spinnaker",
  "nc-backend-truenorth",
  "nc-frontend-bindsnet",

@@ -33,6 +33,7 @@ members = [
   "crates/backend_dynaps",
   "crates/backend_memxbar",
   "crates/backend_custom_asic",
+  "crates/backend_riscv",
   "crates/xtask"
 ]
 default-members = [

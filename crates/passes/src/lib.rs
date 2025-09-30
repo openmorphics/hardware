@@ -439,6 +439,142 @@ impl Pass for ResourceCheckPass {
     }
 }
 
+/* RISC-V specific pass stubs: LowerToKernels, MemoryLayoutAndQuant, KernelFusionAndScheduling,
+   VectorizeKernels, BareMetalTuning, ControlPlaneDriverGen. These are backend-agnostic stubs that
+   annotate the graph for downstream RISC-V codegen without requiring hardware routing. */
+
+pub struct RvLowerToKernelsPass;
+impl Pass for RvLowerToKernelsPass {
+    fn name(&self) -> &str { "rv-lower" }
+    fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
+        let kernel_count = g.populations.len().max(1);
+        let mode = if g.attributes.contains_key("timing") { "tick" } else { "event" };
+        let meta = serde_json::json!({
+            "status": "ok",
+            "mode": mode,
+            "kernel_count": kernel_count,
+            "notes": "lowered SNN ops into CPU kernels (stub)"
+        });
+        g.attributes.insert("rv_kernels".to_string(), meta);
+        Ok(g)
+    }
+}
+
+pub struct RvMemoryLayoutAndQuantPass;
+impl Pass for RvMemoryLayoutAndQuantPass {
+    fn name(&self) -> &str { "rv-layout" }
+    fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
+        // Heuristics: detect manifest type from attached path (if present)
+        let manifest_path = g.attributes
+            .get("hal_manifest_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+
+        let is_rv64gcv = manifest_path.ends_with("riscv64gcv_linux.toml");
+        let is_rv32_bare = manifest_path.ends_with("riscv32imac_bare.toml");
+        let vector_available = is_rv64gcv;
+
+        // Pull available weight precisions to set a default quantization choice
+        let caps = extract_caps_from_graph(&g);
+        let default_bits = caps
+            .as_ref()
+            .and_then(|c| c.weight_precisions.as_ref())
+            .and_then(|v| v.iter().copied().max())
+            .unwrap_or(16);
+
+        let vector_bytes = if vector_available { 64 } else { 16 };
+        let align_bytes = if vector_available { 64 } else { 16 };
+        let meta = serde_json::json!({
+            "status": "ok",
+            "vector_available": vector_available,
+            "vector_bytes": vector_bytes,
+            "align_bytes": align_bytes,
+            "quant_bits_default": default_bits,
+            "profile": if is_rv32_bare { "rv32-bare" } else { "rv64-linux" },
+        });
+        g.attributes.insert("rv_layout".to_string(), meta);
+        Ok(g)
+    }
+}
+
+pub struct RvKernelFusionAndSchedulingPass;
+impl Pass for RvKernelFusionAndSchedulingPass {
+    fn name(&self) -> &str { "rv-schedule" }
+    fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
+        let fused = vec!["integrate", "threshold"];
+        let threads: u32 = 1; // M1: single-threaded baseline
+        let meta = serde_json::json!({
+            "status": "ok",
+            "fused_stages": fused,
+            "threads": threads,
+            "notes": "baseline single-thread schedule (stub)"
+        });
+        g.attributes.insert("rv_schedule".to_string(), meta);
+        Ok(g)
+    }
+}
+
+pub struct RvVectorizeKernelsPass;
+impl Pass for RvVectorizeKernelsPass {
+    fn name(&self) -> &str { "rv-vectorize" }
+    fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
+        let layout = g.attributes.get("rv_layout").cloned().unwrap_or(serde_json::json!({}));
+        let vector_available = layout.get("vector_available").and_then(|v| v.as_bool()).unwrap_or(false);
+        let vlen = layout.get("vector_bytes").and_then(|v| v.as_u64()).unwrap_or(0);
+        let meta = serde_json::json!({
+            "status": "ok",
+            "enabled": vector_available,
+            "vlen_bytes": vlen,
+            "notes": "RVV intrinsic mapping deferred to backend (stub)"
+        });
+        g.attributes.insert("rv_vectorize".to_string(), meta);
+        Ok(g)
+    }
+}
+
+pub struct RvBareMetalTuningPass;
+impl Pass for RvBareMetalTuningPass {
+    fn name(&self) -> &str { "rv-baremetal-tuning" }
+    fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
+        let manifest_path = g.attributes
+            .get("hal_manifest_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let size_optimized = manifest_path.ends_with("riscv32imac_bare.toml");
+        let meta = serde_json::json!({
+            "status": "ok",
+            "size_optimized": size_optimized,
+            "use_compressed": true,
+            "notes": "optimize for code size on RV32 bare metal (stub)"
+        });
+        g.attributes.insert("rv_bare_tuning".to_string(), meta);
+        Ok(g)
+    }
+}
+
+pub struct RvControlPlaneDriverGenPass;
+impl Pass for RvControlPlaneDriverGenPass {
+    fn name(&self) -> &str { "rv-control-plane-driver" }
+    fn run(&self, mut g: nir::Graph) -> Result<nir::Graph> {
+        let manifest_path = g.attributes
+            .get("hal_manifest_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let targeted = manifest_path.ends_with("riscv64gc_ctrl.toml");
+        let meta = serde_json::json!({
+            "status": if targeted { "ok" } else { "skipped" },
+            "mmio": { "requires_fence_io": true, "aligned_access": true },
+            "dma": { "supported": targeted, "alignment": 64 },
+            "notes": "generate control-plane stubs for accelerator (stub)"
+        });
+        g.attributes.insert("rv_ctrl_plane".to_string(), meta);
+        Ok(g)
+    }
+}
+
 pub enum DumpFormat {
     Json,
     Yaml,

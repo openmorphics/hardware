@@ -1,0 +1,47 @@
+name = "riscv32imac_bare"
+vendor = "Generic"
+family = "RISC-V"
+version = "1"
+notes = "RV32IMAC bare-metal or Zephyr/FreeRTOS target without vector support."
+
+[capabilities]
+on_chip_learning = false
+weight_precisions = [8, 16]
+max_neurons_per_core = 16384
+max_synapses_per_core = 131072
+time_resolution_ns = 10000
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF"]
+max_fan_in = 4096
+max_fan_out = 4096
+core_memory_kib = 256
+interconnect_bandwidth_mbps = 10
+analog = false
+on_chip_plasticity_rules = []
+
+# Modeling hints
+neuron_mem_kib_per = 0.001
+syn_mem_kib_per = 0.0002
+bytes_per_event = 4
+default_spike_rate_hz = 20.0
+
+# CPU/RISC-V optional fields
+isa = "rv32imac"
+abi = "ilp32"
+has_a = true
+has_c = true
+has_f = false
+has_d = false
+has_vector = false
+
+# Memory/layout
+endianness = "little"
+cacheline_bytes = 32
+code_model = "medlow"
+
+# MMIO/DMA and profile
+mmio_supported = false
+dma_supported = false
+profile = "bare_metal"

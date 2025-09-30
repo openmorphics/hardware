@@ -412,6 +412,45 @@ fn main() {
                         eprintln!("backend 'backend-custom-asic' is not enabled; rebuild CLI with --features backend-custom-asic");
                     }
                 }
+                "riscv64gcv_linux" => {
+                    #[cfg(feature = "backend-riscv")]
+                    {
+                        match nc_backend_riscv::compile(&g, &manifest) {
+                            Ok(art) => println!("compile ok: {}", art),
+                            Err(e) => eprintln!("compile error: {e}"),
+                        }
+                    }
+                    #[cfg(not(feature = "backend-riscv"))]
+                    {
+                        eprintln!("backend 'backend-riscv' is not enabled; rebuild CLI with --features backend-riscv");
+                    }
+                }
+                "riscv32imac_bare" => {
+                    #[cfg(feature = "backend-riscv")]
+                    {
+                        match nc_backend_riscv::compile(&g, &manifest) {
+                            Ok(art) => println!("compile ok: {}", art),
+                            Err(e) => eprintln!("compile error: {e}"),
+                        }
+                    }
+                    #[cfg(not(feature = "backend-riscv"))]
+                    {
+                        eprintln!("backend 'backend-riscv' is not enabled; rebuild CLI with --features backend-riscv");
+                    }
+                }
+                "riscv64gc_ctrl" => {
+                    #[cfg(feature = "backend-riscv")]
+                    {
+                        match nc_backend_riscv::compile(&g, &manifest) {
+                            Ok(art) => println!("compile ok: {}", art),
+                            Err(e) => eprintln!("compile error: {e}"),
+                        }
+                    }
+                    #[cfg(not(feature = "backend-riscv"))]
+                    {
+                        eprintln!("backend 'backend-riscv' is not enabled; rebuild CLI with --features backend-riscv");
+                    }
+                }
                 other => {
                     eprintln!("compile: unsupported or not yet integrated target '{other}'");
                 }
