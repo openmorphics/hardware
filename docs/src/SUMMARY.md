@@ -7,12 +7,13 @@
 - [Passes](../spec/passes.md)
 - [Backends](../spec/backends.md)
 - [Errors](../spec/errors.md)
-- Tutorials
+- [Tutorials](./tutorials.md)
   - [Pipeline walkthrough](../tutorials/pipeline.md)
   - [Backend authoring](../tutorials/backend_authoring.md)
-- Notes
+  - [RISC-V Python SDK Quickstart](../tutorials/riscv_pysdk_quickstart.md)
+- [Notes](./notes.md)
   - [Compatibility](../notes/compatibility.md)
-- Metrics
+- [Metrics](./metrics.md)
   - [Profiling](../metrics/profiling.md)
 - [Contributing](./contributing.md)
 - [RFC Template](./rfc_template.md)

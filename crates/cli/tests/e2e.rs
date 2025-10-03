@@ -214,3 +214,24 @@ fn lower_profile_jsonl_labels_schema() {
         assert!(found_schema, "expected at least one JSONL record with labels.graph and labels.pass");
     }
 }
+
+#[cfg(feature = "backend-riscv")]
+#[test]
+fn riscv_compile_smoke_no_qemu() {
+    use std::path::PathBuf;
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let crate_dir = PathBuf::from(manifest_dir);
+    let ws_root = crate_dir.parent().and_then(|p| p.parent()).expect("ws root");
+    let input = ws_root.join("examples/nir/simple.json");
+
+    let mut cmd = bin();
+    cmd.args([
+        "compile",
+        "--input", input.to_str().expect("input path"),
+        "--target", "riscv64gcv_linux",
+    ]);
+    let pred = predicate::str::contains("compile ok").and(predicate::str::contains("artifact:"));
+    cmd.assert()
+        .success()
+        .stdout(pred);
+}

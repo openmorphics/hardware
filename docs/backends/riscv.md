@@ -41,6 +41,85 @@ cargo build -p neuro-compiler-cli --features backend-riscv
       clang --target=riscv64-unknown-linux-gnu ...
       ```
 
+## RVV codegen feature flag (riscv-v)
+
+The RVV vectorization path for the linux_user profile is gated behind a crate-local feature in the RISC-V backend.
+
+- What it does:
+  - Enables emission of RISC-V Vector (RVV) intrinsics in the generated C for the RV64 Linux userspace profile.
+  - The emitted C guards the vectorized loop with `#if defined(__riscv_vector)` and provides a scalar fallback in the `#else` block.
+  - Build logic attempts to compile with vector ISA flags and gracefully falls back to scalar if the toolchain does not support RVV. Fallback details are written to `WARN.txt`, and `README.txt` notes whether vector flags were attempted.
+
+- How to enable:
+  - At the workspace level when testing:
+    ```
+    cargo test --workspace --features backend-riscv/riscv-v
+    ```
+  - Or when building the CLI with the backend and RVV enabled:
+    ```
+    cargo build -p neuro-compiler-cli --features backend-riscv,backend-riscv/riscv-v
+    ```
+
+- Expected effect:
+  - Telemetry schema is unchanged. Any performance improvements will appear in existing metrics such as `kernel.step_ns`, `cpu.cycle`, and `cpu.instret`.
+  - When tools support RVV, the build adds the appropriate flags (GCC: `-march=rv64gcv`, Clang: `--target=riscv64-unknown-linux-gnu -march=rv64gcv`).
+
+## Bare-metal (RV32IMAC) profile
+
+- Target: `riscv32imac_bare` (profile = `bare_metal`)
+- Toolchain required:
+  - Cross-compiler: `riscv64-unknown-elf-gcc` (multilib supports RV32 with `-march=rv32imac -mabi=ilp32`)
+  - System emulator: `qemu-system-riscv32`
+- What the backend emits:
+  - `crt0.S` (startup, sets SP, clears .bss, calls `main`)
+  - `linker.ld` (RAM @ 0x8000_0000, stack at top)
+  - `main.c` (polled UART at 0x1000_0000; prints JSONL metrics)
+- Build and run (best-effort; writes WARN.txt if tools missing):
+  ```
+  export NC_RISCV_QEMU_RUN=1                 # optional: run under QEMU after compile
+  neuro-compiler compile --input examples/nir/simple.json --target riscv32imac_bare
+  ```
+  - If tools are present, the backend:
+    - Builds `firmware.elf` with `-nostdlib -nostartfiles -Tlinker.ld -march=rv32imac -mabi=ilp32`
+    - Runs `qemu-system-riscv32 -nographic -machine virt -bios none -kernel firmware.elf`
+    - Captures UART stdout to `$NC_PROFILE_JSONL` or `target/<target>-<graph>/profile.jsonl`
+- Telemetry:
+  - Same JSONL schema as other backends. Metrics include: `kernel.step_ns`, `events.processed`, `cpu.cycle`, `cpu.instret`.
+  - UART is memory-mapped at 0x1000_0000; QEMU writes it to stdout. Firmware signals exit via the SiFive test finisher at 0x0010_0000.
+
+## Control-plane (RV64GC) profile
+
+- Target: `riscv64gc_ctrl` (profile = `control_plane`)
+- Purpose: Emits Linux user-space programs that control a simulated neuromorphic accelerator via MMIO/DMA operations in Renode
+- Toolchain required:
+  - Cross-compiler: `riscv64-linux-gnu-gcc` or `clang --target=riscv64-unknown-linux-gnu`
+  - Simulator: `renode` (can be installed via `pip install renode-colab`)
+- What the backend emits:
+  - `main.c` (Linux user-space program using `mmap` on `/dev/mem` for MMIO access)
+  - `accelerator.repl` (Renode platform description defining RV64 system + custom peripheral)
+  - `accelerator.py` (Python model implementing the SNN_Accelerator peripheral registers)
+  - `run.resc` (Renode script to load platform, ELF binary, and start simulation)
+- Build and run (best-effort; writes WARN.txt if tools missing):
+  ```
+  export NC_RISCV_QEMU_RUN=1                 # optional: run Renode simulation after compile
+  neuro-compiler compile --input examples/nir/simple.json --target riscv64gc_ctrl
+  ```
+  - If tools are present, the backend:
+    - Builds a Linux RV64 binary targeting the control-plane workflow
+    - Runs Renode with the generated platform and script
+    - Captures simulation output to `renode.log` and extracts JSONL telemetry
+- MMIO operations:
+  - The generated `main.c` performs typical accelerator control sequences:
+    - Reset accelerator via control register
+    - Configure DMA transfer (if `dma_supported = true` in manifest)
+    - Start operation and poll status register for completion
+    - Read results and generate telemetry
+  - MMIO base address is configurable via `mmio_base_addr` in the target manifest (default: 0x40000000)
+- Telemetry:
+  - Same JSONL schema as other backends, with `simulator=renode`
+  - Additional metrics: `mmio.operations` (count of MMIO register accesses)
+  - Renode peripheral model logs operations for debugging and verification
+
 ## Usage
 
 - List targets:
@@ -51,6 +130,11 @@ cargo build -p neuro-compiler-cli --features backend-riscv
 - Compile to RISC-V (RV64GCV):
   ```
   neuro-compiler compile --input examples/nir/simple.json --target riscv64gcv_linux
+  ```
+
+- Compile to RISC-V control-plane:
+  ```
+  neuro-compiler compile --input examples/nir/simple.json --target riscv64gc_ctrl
   ```
 
 - Lower with RISC-V-oriented passes:
@@ -87,6 +171,15 @@ Records are JSONL with labels aligned to the compiler’s standard schema:
 - labels: graph, backend=riscv, isa=rv64gcv, simulator=qemu
 - metrics: `kernel.step_ns`, `events.processed`, etc.
 
+The emitted Linux userspace binary also attempts to report hardware counters when CSR access is available (Zicntr/Zihpm):
+- metrics: `cpu.cycle`, `cpu.instret`
+- These may be zero in some environments (e.g., when user-mode CSR access is disabled via `counteren`, or in certain simulators).
+
+Example additional JSONL lines:
+```
+{"metric":"cpu.cycle","value":123456,"labels":{"graph":"...","backend":"riscv","isa":"rv64gcv","simulator":"qemu"}}
+{"metric":"cpu.instret","value":7890,"labels":{"graph":"...","backend":"riscv","isa":"rv64gcv","simulator":"qemu"}}
+```
 ## CI notes (optional)
 
 - Add steps to install qemu-user and riscv64 cross toolchain for Linux jobs.
@@ -95,5 +188,5 @@ Records are JSONL with labels aligned to the compiler’s standard schema:
 
 ## Notes
 
-- M1 uses scalar C codegen; RVV vectorization and richer runtime will follow.
-- Control-plane profile will emit device control code once the MMIO/DMA generator is implemented.
+- The backend emits a scalar fallback by default. With the `riscv-v` feature enabled, it additionally emits RVV intrinsics guarded by `__riscv_vector`, preserving full backward compatibility with older toolchains.
+- Control-plane profile emits Renode simulation artifacts including MMIO/DMA device control code, platform descriptions, and peripheral models for end-to-end testing.

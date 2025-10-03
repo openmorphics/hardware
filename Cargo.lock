@@ -837,6 +837,7 @@ dependencies = [
  "ctrlc",
  "opentelemetry",
  "opentelemetry-otlp",
+ "opentelemetry_sdk",
  "serde",
  "serde_json",
  "tracing",

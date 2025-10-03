@@ -1,0 +1,2 @@
+simulator: neuron
+name: example-json

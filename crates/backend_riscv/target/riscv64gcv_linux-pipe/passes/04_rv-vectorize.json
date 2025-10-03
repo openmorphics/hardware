@@ -18,7 +18,8 @@
     "rv_layout": {
       "align_bytes": 64,
       "quant_bits_default": 8,
-      "vector_available": true
+      "vector_available": true,
+      "vector_bytes": 64
     },
     "rv_schedule": {
       "fused_stages": [
@@ -27,7 +28,8 @@
       "threads": 1
     },
     "rv_vectorize": {
-      "enabled": true
+      "enabled": true,
+      "vlen_bytes": 64
     }
   }
 }

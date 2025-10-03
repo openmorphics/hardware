@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [features]
 default = []
 telemetry = ["dep:nc-telemetry"]
+riscv-v = []
 
 [dependencies]
 anyhow = { workspace = true }

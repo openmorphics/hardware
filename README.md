@@ -1,15 +1,19 @@
 # neuro-compiler (skeleton)
 
-A universal neuromorphic compiler scaffold with Rust core and optional Python bindings. This repo currently provides:
-- Canonical IR crate (nc-nir) stub
-- Hardware Abstraction Layer crate (nc-hal) stub with builtin target list
-- Pass manager crate (nc-passes) stub
-- Runtime, Telemetry, Orchestrator, and ML optimization stubs
-- CLI (neuro-compiler) with 'list-targets' and lowering pipeline controls
-- Python bindings crate (feature-gated) and pyproject for maturin
-- MLIR bridge crate gated behind 'mlir' feature (off by default)
-- Docs skeleton (mdBook) and CI skeleton
-- Examples under examples/nir/
+A universal neuromorphic compiler scaffold with Rust core and optional Python bindings.
+
+## Features
+
+This repo currently provides:
+- **Canonical IR**: NIR (Neuromorphic Intermediate Representation) for cross-platform model definitions
+- **Hardware Abstraction Layer**: Unified interface supporting multiple neuromorphic targets
+- **Pass System**: Extensible optimization and transformation pipeline
+- **Runtime Support**: Telemetry, orchestration, and ML optimization capabilities
+- **CLI Interface**: Command-line tools with target listing and lowering pipeline controls
+- **Python Bindings**: Optional Python API with maturin integration (feature-gated)
+- **MLIR Bridge**: Integration with MLIR infrastructure (gated behind 'mlir' feature)
+- **RISC-V Backend**: Compile neuromorphic models to C code for a variety of RISC-V targets, from high-performance `RV64GCV` Linux systems to `RV32IMAC` bare-metal microcontrollers. Supported via the `backend-riscv` feature.
+- **Documentation**: Complete mdBook documentation and examples
 
 Quick start (build workspace):
 - cargo build --workspace
@@ -31,6 +35,30 @@ Docs (mdBook):
 - Start at docs/src/quickstart.md
 
 License: UNLICENSED (see LICENSE).
+
+## Backend: RISC-V
+
+The neuromorphic compiler can now target the RISC-V architecture, enabling deployment on open-standard hardware ranging from high-performance Linux systems to resource-constrained bare-metal microcontrollers.
+
+### Supported Profiles
+
+The RISC-V backend supports three distinct deployment profiles:
+
+- **`linux_user`**: For general-purpose RV64GCV cores running Linux. Optimizes for performance using the Vector 'V' extension.
+- **`bare_metal`**: For resource-constrained RV32IMAC microcontrollers. Generates a self-contained firmware image.
+- **`control_plane`**: For RV64G cores acting as a control plane for custom accelerators, generating code that uses MMIO.
+
+### CLI Usage Example
+
+```bash
+# Compile a simple NIR graph for a 64-bit Linux RISC-V target
+neuroc compile ./examples/nir/simple.json --target riscv64gcv_linux -o ./tmp/riscv_output
+```
+
+### Documentation
+
+- For more information on toolchains and usage, see the [RISC-V Backend Docs](docs/backends/riscv.md).
+- To get started with the Python SDK, see the [RISC-V Python Quickstart](docs/tutorials/riscv_pysdk_quickstart.md).
 
 ## Minimal builds via feature flags (per surface)
 

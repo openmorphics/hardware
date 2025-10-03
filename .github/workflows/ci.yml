@@ -47,6 +47,56 @@ jobs:
               ;;
           esac
 
+  riscv-renode:
+    runs-on: ubuntu-latest
+    env:
+      RUN_RENODE_TESTS: "1"
+      NC_RISCV_QEMU_RUN: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install RISC-V toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user qemu-user-static
+      - name: Install Renode
+        run: |
+          pip install renode-colab
+      - name: Build RISC-V backend
+        run: |
+          cargo build -p nc-backend-riscv
+      - name: Test RISC-V backend with Renode
+        run: |
+          cargo test -p nc-backend-riscv renode_control_plane_smoke_if_available -- --nocapture
+
+  riscv-renode:
+    runs-on: ubuntu-latest
+    env:
+      RUN_RENODE_TESTS: "1"
+      NC_RISCV_QEMU_RUN: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install RISC-V toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user qemu-user-static
+      - name: Install Renode
+        run: |
+          pip install renode-colab
+      - name: Build RISC-V backend
+        run: |
+          cargo build -p nc-backend-riscv
+      - name: Test RISC-V backend with Renode
+        run: |
+          cargo test -p nc-backend-riscv renode_control_plane_smoke_if_available -- --nocapture
+
   python-wheels:
     strategy:
       matrix:

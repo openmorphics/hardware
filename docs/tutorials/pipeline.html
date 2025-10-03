@@ -1,0 +1,370 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Pipeline walkthrough - neuro-compiler Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">neuro-compiler Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="mapping-pipeline-tutorial"><a class="header" href="#mapping-pipeline-tutorial">Mapping Pipeline Tutorial</a></h1>
+<p>This tutorial shows how to run the end-to-end lowering/mapping pipeline from the CLI and Python, including capability-aware passes, HAL manifest attachment, simulator emission, and telemetry profiling.</p>
+<p>Core references</p>
+<ul>
+<li>CLI entrypoint: <a href="crates/cli/src/main.rs:1">cli.main.rs</a></li>
+<li>Pass framework and pipeline: <a href="crates/passes/src/lib.rs:1">passes.lib.rs</a></li>
+<li>HAL + target manifests: <a href="crates/hal/src/lib.rs:1">hal.lib.rs</a>, <a href="targets">targets/</a></li>
+<li>Telemetry (timers/counters/labels): <a href="crates/telemetry/src/lib.rs:1">telemetry.lib.rs</a>, <a href="docs/metrics/labels.html">docs/metrics/labels.md</a>, <a href="docs/metrics/profiling.html">docs/metrics/profiling.md</a></li>
+<li>Python usage: <a href="docs/python/usage.html">docs/python/usage.md</a></li>
+</ul>
+<p>Prerequisites</p>
+<ul>
+<li>Rust toolchain installed</li>
+<li>From the repo root, the following commands will work against included examples</li>
+</ul>
+<p>Example NIR model</p>
+<ul>
+<li>Small example: <a href="examples/nir/simple.json:1">examples/nir/simple.json</a></li>
+</ul>
+<ol>
+<li>Validate and inspect NIR</li>
+</ol>
+<pre><code class="language-bash"># Validate and print basic stats using CLI import
+cargo run -p neuro-compiler-cli -- import --input examples/nir/simple.json
+</code></pre>
+<p>Under the hood, the CLI uses <a href="crates/nir/src/lib.rs:1">nir.Graph</a> parsing and <a href="crates/nir/src/lib.rs:1">nir.Graph::validate()</a>, returning a summary.</p>
+<ol start="2">
+<li>Run a mapping pipeline (no HAL)</li>
+</ol>
+<pre><code class="language-bash"># Run a basic pipeline over a stub graph and dump intermediate artifacts in JSON
+cargo run -p neuro-compiler-cli -- lower \
+  --pipeline validate,partition,placement,routing,timing,resource-check \
+  --dump-dir target/tutorial-dumps \
+  --dump-format json
+</code></pre>
+<p>This compiles a trivial graph in CLI for demonstration and writes per-pass dumps (e.g., 00_validate.json, 01_partition.json, …). See dump code in <a href="crates/passes/src/lib.rs:519">passes.dump_graph()</a>.</p>
+<ol start="3">
+<li>Run a mapping pipeline with HAL manifest
+Capability-aware passes can enforce target constraints (e.g., memory, fan-in/out, interconnect bandwidth).</li>
+</ol>
+<pre><code class="language-bash"># Use a builtin target manifest (loihi2) to make passes capability-aware
+cargo run -p neuro-compiler-cli -- lower \
+  --pipeline validate,partition,placement,routing,timing,resource-check \
+  --dump-dir target/tutorial-dumps-loihi2 \
+  --dump-format json \
+  --target loihi2
+</code></pre>
+<p>Alternatively, provide a manifest file directly:</p>
+<pre><code class="language-bash">cargo run -p neuro-compiler-cli -- lower \
+  --pipeline validate,partition,placement,routing,timing,resource-check \
+  --dump-dir target/tutorial-dumps-custom \
+  --dump-format json \
+  --manifest targets/loihi2.toml
+</code></pre>
+<p>The CLI attaches the manifest path to the NIR attributes (key: "hal_manifest_path"), which passes read via <a href="crates/passes/src/lib.rs:64">passes.extract_caps_from_graph()</a>.</p>
+<ol start="4">
+<li>Enable telemetry profiling (JSONL)
+When built with the telemetry feature, the pipeline can emit JSONL profiling records (timers and counters) using labels standardized in <a href="docs/metrics/labels.html">docs/metrics/labels.md</a>.</li>
+</ol>
+<pre><code class="language-bash"># Build with telemetry and run a pipeline producing JSONL
+# (You can also use `cargo run --features telemetry -p neuro-compiler-cli -- ...` if features are opt-in)
+NC_PROFILE_JSONL=target/lower-prof.jsonl \
+cargo run -p neuro-compiler-cli -- lower \
+  --pipeline validate,partition,placement \
+  --dump-dir target/tutorial-telemetry \
+  --dump-format json
+</code></pre>
+<p>To summarize the JSONL (when telemetry is enabled in the build):</p>
+<pre><code class="language-bash">cargo run -p neuro-compiler-cli -- profile --input target/lower-prof.jsonl
+</code></pre>
+<ol start="5">
+<li>Simulate the model (NEURON/CoreNEURON/Arbor)
+Simulators emit runnable artifacts (or stubs, depending on features) using the same NIR input.</li>
+</ol>
+<pre><code class="language-bash"># Simulate with NEURON artifacts
+cargo run -p neuro-compiler-cli -- simulate \
+  --simulator neuron \
+  --input examples/nir/simple.json \
+  --out-dir target/sim-neuron-out
+</code></pre>
+<p>Other simulators:</p>
+<pre><code class="language-bash">cargo run -p neuro-compiler-cli -- simulate --simulator coreneuron --input examples/nir/simple.json --out-dir target/sim-coreneuron-out
+cargo run -p neuro-compiler-cli -- simulate --simulator arbor      --input examples/nir/simple.json --out-dir target/sim-arbor-out
+</code></pre>
+<p>See simulator emitters in:</p>
+<ul>
+<li><a href="crates/sim_neuron/src/lib.rs:1">sim_neuron.lib.rs</a></li>
+<li><a href="crates/sim_coreneuron/src/lib.rs:1">sim_coreneuron.lib.rs</a></li>
+<li><a href="crates/sim_arbor/src/lib.rs:1">sim_arbor.lib.rs</a></li>
+</ul>
+<ol start="6">
+<li>Python quickstart (auto-detect JSON vs YAML)
+See the complete guide in <a href="docs/python/usage.html">docs/python/usage.md</a>. The minimal path, using auto-detect helpers exposed in <a href="crates/py/src/lib.rs:1">py.lib.rs</a>:</li>
+</ol>
+<pre><code class="language-python">import os
+import neuro_compiler as nc
+
+nir = '{"nir_version":"0.1","name":"py-tutorial","populations":[{"name":"A","size":1,"model":"LIF","params":{}},{"name":"B","size":1,"model":"LIF","params":{}}],"connections":[{"pre":"A","post":"B","weight":0.5,"delay_ms":0.0}],"probes":[]}'
+
+# Compile (requires matching backend feature in built wheel)
+try:
+    art = nc.compile_nir_str_py("truenorth", nir)
+    print("compile artifact:", art)
+except Exception as e:
+    print("compile disabled:", e)
+
+# Simulate with telemetry JSONL
+os.environ["NC_PROFILE_JSONL"] = "py-tutorial-prof.jsonl"
+try:
+    out_dir = nc.simulate_nir_str_py("neuron", nir, "py-tutorial-sim-out")
+    print("simulate artifacts:", out_dir)
+except Exception as e:
+    print("simulate disabled:", e)
+</code></pre>
+<ol start="7">
+<li>Understanding pass outputs</li>
+</ol>
+<ul>
+<li>Partition: parts count, population assignments, and violations (e.g., population exceeding max neurons/core).</li>
+<li>Placement: estimated memory per part vs. core_memory_kib; fan-in/out checks.</li>
+<li>Routing: cross-part edge counts, bandwidth estimate (bytes_per_event × default_spike_rate_hz) vs. interconnect bandwidth.</li>
+<li>Timing: per-connection ticks computed from time_resolution_ns.</li>
+</ul>
+<p>All of these are recorded into the graph’s attributes by each pass (see <a href="crates/passes/src/lib.rs:1">passes.lib.rs</a>) and are included in the dump artifacts when enabled.</p>
+<ol start="8">
+<li>Troubleshooting</li>
+</ol>
+<ul>
+<li>“manifest invalid”: Ensure the TOML schema fields are legal (non-zero caps, positive memory/rates). See <a href="crates/hal/src/lib.rs:95">hal.validate_manifest()</a>.</li>
+<li>“simulate unsupported”: The chosen simulator feature may not be enabled; rebuild CLI with the required feature flag.</li>
+<li>Empty JSONL: Ensure the telemetry feature is enabled in the build and NC_PROFILE_JSONL points to a writable path.</li>
+</ul>
+<ol start="9">
+<li>Next steps</li>
+</ol>
+<ul>
+<li>Backend compilation: Use the CLI compile command to generate backend-specific artifacts (when compiled with that backend). See <a href="crates/cli/src/main.rs:1">cli.main.rs</a>.</li>
+<li>Label schema and analysis: Explore the labels in JSONL via <a href="docs/metrics/labels.html">docs/metrics/labels.md</a> and summarize with the CLI or a Python notebook.</li>
+<li>Extend the pipeline: Add or reorder passes by name using <a href="crates/passes/src/lib.rs:545">passes.build_pipeline()</a>.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../tutorials.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../tutorials/backend_authoring.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../tutorials.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../tutorials/backend_authoring.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

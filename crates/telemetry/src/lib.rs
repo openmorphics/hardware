@@ -9,8 +9,10 @@ pub fn init() {
 pub fn init_otel(_endpoint: Option<&str>) -> anyhow::Result<()> {
     #[cfg(feature = "otlp")]
     {
-        use opentelemetry::{global, sdk::trace as sdktrace};
+        use opentelemetry::global;
         use opentelemetry_otlp::WithExportConfig;
+        use opentelemetry_sdk::trace as sdktrace;
+        use tracing_subscriber::prelude::*;
 
         // Resolve endpoint
         let endpoint = _endpoint

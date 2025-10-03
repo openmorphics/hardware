@@ -1,0 +1,430 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>RISC-V Python SDK Quickstart - neuro-compiler Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">neuro-compiler Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="risc-v-python-sdk-quickstart"><a class="header" href="#risc-v-python-sdk-quickstart">RISC-V Python SDK Quickstart</a></h1>
+<h2 id="introduction"><a class="header" href="#introduction">Introduction</a></h2>
+<p>This tutorial demonstrates how to compile neuromorphic network models for all three RISC-V target profiles using the Python SDK. You'll learn to use the neuromorphic compiler's Python bindings to generate optimized code for different RISC-V deployment scenarios, from high-performance Linux applications to resource-constrained embedded systems and neuromorphic accelerator control planes.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<p>Before proceeding with this tutorial, ensure you have the required RISC-V toolchains and simulation environments installed. For detailed setup instructions, refer to the <a href="../backends/riscv.html">RISC-V Backend Documentation</a>.</p>
+<p>Required tools:</p>
+<ul>
+<li>RISC-V GNU toolchain (for cross-compilation)</li>
+<li>QEMU with RISC-V support (for Linux user and bare-metal profiles)</li>
+<li>Renode (for control-plane profile simulation)</li>
+<li>Python neuromorphic compiler with RISC-V backend support</li>
+</ul>
+<h2 id="example-1-linux-user-profile-riscv64gcv_linux"><a class="header" href="#example-1-linux-user-profile-riscv64gcv_linux">Example 1: Linux User Profile (<code>riscv64gcv_linux</code>)</a></h2>
+<p>The Linux user profile targets RV64GCV systems running in user mode on Linux, with vector extensions and performance counters enabled. This profile is ideal for high-performance neuromorphic applications.</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+"""
+RISC-V Linux User Profile Compilation Example
+
+This script demonstrates compiling a NIR model for the riscv64gcv_linux target,
+which generates optimized code for 64-bit RISC-V processors with vector extensions
+running in Linux userspace.
+"""
+
+import os
+import neuro_compiler as nc
+
+def main():
+    print("=== RISC-V Linux User Profile (riscv64gcv_linux) ===")
+    
+    # Load the NIR model from the examples directory
+    with open("examples/nir/simple.json", "r") as f:
+        nir_content = f.read()
+    
+    # Set environment variables for RISC-V simulation and telemetry capture
+    os.environ["NC_RISCV_QEMU_RUN"] = "1"
+    os.environ["NC_PROFILE_JSONL"] = "linux_user_profile.jsonl"
+    
+    try:
+        # Compile for the Linux user profile target
+        artifact_path = nc.compile_nir_str_py("riscv64gcv_linux", nir_content)
+        print(f"✓ Compilation successful!")
+        print(f"  Artifacts written to: {artifact_path}")
+        print(f"  Generated executable optimized for RV64GCV with vector extensions")
+        
+        # Wait for simulation to complete and analyze telemetry
+        print("\n📊 Telemetry Summary:")
+        summary = nc.profile_summary_py("linux_user_profile.jsonl")
+        print(summary)
+        
+    except Exception as e:
+        print(f"✗ Compilation failed: {e}")
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+<p>This profile generates a Linux executable that leverages RISC-V vector extensions for optimized neuromorphic computation. The simulation runs under <code>qemu-riscv64</code> in user mode, and telemetry data captures performance metrics including vector instruction utilization.</p>
+<h2 id="example-2-bare-metal-profile-riscv32imac_bare"><a class="header" href="#example-2-bare-metal-profile-riscv32imac_bare">Example 2: Bare-Metal Profile (<code>riscv32imac_bare</code>)</a></h2>
+<p>The bare-metal profile targets resource-constrained embedded systems without operating system support. This profile is designed for real-time applications where deterministic behavior and minimal resource usage are critical.</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+"""
+RISC-V Bare-Metal Profile Compilation Example
+
+This script demonstrates compiling a NIR model for the riscv32imac_bare target,
+which generates firmware for 32-bit RISC-V microcontrollers without vector
+extensions, suitable for embedded and real-time applications.
+"""
+
+import os
+import neuro_compiler as nc
+
+def main():
+    print("=== RISC-V Bare-Metal Profile (riscv32imac_bare) ===")
+    
+    # Load the NIR model from the examples directory
+    with open("examples/nir/simple.json", "r") as f:
+        nir_content = f.read()
+    
+    # Set environment variables for RISC-V simulation and telemetry capture
+    os.environ["NC_RISCV_QEMU_RUN"] = "1"
+    os.environ["NC_PROFILE_JSONL"] = "bare_metal_profile.jsonl"
+    
+    try:
+        # Compile for the bare-metal target
+        artifact_path = nc.compile_nir_str_py("riscv32imac_bare", nir_content)
+        print(f"✓ Compilation successful!")
+        print(f"  Artifacts written to: {artifact_path}")
+        print(f"  Generated firmware.elf for RV32IMAC bare-metal execution")
+        print(f"  Optimized for low memory footprint and deterministic timing")
+        
+        # Analyze telemetry from simulated UART output
+        print("\n📊 Telemetry Summary:")
+        summary = nc.profile_summary_py("bare_metal_profile.jsonl")
+        print(summary)
+        print("  Telemetry captured from qemu-system-riscv32 UART simulation")
+        
+    except Exception as e:
+        print(f"✗ Compilation failed: {e}")
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+<p>This profile produces a <code>firmware.elf</code> file suitable for deployment on RISC-V microcontrollers. The compilation optimizes for minimal memory usage and real-time constraints, making it ideal for edge AI applications where power efficiency is paramount.</p>
+<h2 id="example-3-control-plane-profile-riscv64gc_ctrl"><a class="header" href="#example-3-control-plane-profile-riscv64gc_ctrl">Example 3: Control-Plane Profile (<code>riscv64gc_ctrl</code>)</a></h2>
+<p>The control-plane profile is designed for scenarios where a RISC-V processor acts as a host controller for specialized neuromorphic accelerator hardware. It includes MMIO and DMA support for high-bandwidth communication with accelerators.</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+"""
+RISC-V Control-Plane Profile Compilation Example
+
+This script demonstrates compiling a NIR model for the riscv64gc_ctrl target,
+which generates control software for RISC-V processors managing neuromorphic
+accelerators via MMIO and DMA interfaces.
+"""
+
+import os
+import neuro_compiler as nc
+
+def main():
+    print("=== RISC-V Control-Plane Profile (riscv64gc_ctrl) ===")
+    
+    # Load the NIR model from the examples directory
+    with open("examples/nir/simple.json", "r") as f:
+        nir_content = f.read()
+    
+    # Set environment variables for RISC-V simulation and telemetry capture
+    os.environ["NC_RISCV_QEMU_RUN"] = "1"
+    os.environ["NC_PROFILE_JSONL"] = "control_plane_profile.jsonl"
+    
+    try:
+        # Compile for the control-plane target
+        artifact_path = nc.compile_nir_str_py("riscv64gc_ctrl", nir_content)
+        print(f"✓ Compilation successful!")
+        print(f"  Artifacts written to: {artifact_path}")
+        print(f"  Generated control software for RV64GC with MMIO/DMA support")
+        print(f"  Includes accelerator.repl and run.resc for Renode simulation")
+        
+        # Analyze telemetry from Renode simulation
+        print("\n📊 Telemetry Summary:")
+        summary = nc.profile_summary_py("control_plane_profile.jsonl")
+        print(summary)
+        print("  Telemetry reflects RISC-V↔accelerator communication patterns")
+        print("  Simulation includes virtual neuromorphic accelerator hardware")
+        
+    except Exception as e:
+        print(f"✗ Compilation failed: {e}")
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+<p>This profile generates control plane software that manages neuromorphic accelerator hardware through memory-mapped I/O and DMA transfers. The Renode simulation environment provides a virtual accelerator for testing the host-accelerator interaction patterns.</p>
+<h2 id="running-the-examples"><a class="header" href="#running-the-examples">Running the Examples</a></h2>
+<p>To execute these examples, save each script to a file and run with Python:</p>
+<pre><code class="language-bash"># Linux User Profile
+python3 riscv_linux_example.py
+
+# Bare-Metal Profile  
+python3 riscv_bare_metal_example.py
+
+# Control-Plane Profile
+python3 riscv_control_plane_example.py
+</code></pre>
+<p>Each script will:</p>
+<ol>
+<li>Load the example NIR model (<code>examples/nir/simple.json</code>)</li>
+<li>Set the required environment variables for simulation</li>
+<li>Invoke the neuromorphic compiler for the target RISC-V profile</li>
+<li>Display the compilation results and artifact locations</li>
+<li>Present a summary of captured performance telemetry</li>
+</ol>
+<h2 id="understanding-the-output"><a class="header" href="#understanding-the-output">Understanding the Output</a></h2>
+<h3 id="compilation-artifacts"><a class="header" href="#compilation-artifacts">Compilation Artifacts</a></h3>
+<p>Each profile generates different types of artifacts in the <code>target/</code> directory:</p>
+<ul>
+<li><strong>Linux User</strong>: Executable binary optimized for user-mode execution</li>
+<li><strong>Bare-Metal</strong>: <code>firmware.elf</code> with startup code and linker scripts</li>
+<li><strong>Control-Plane</strong>: Host software plus Renode simulation files (<code>.repl</code>, <code>.resc</code>)</li>
+</ul>
+<h3 id="telemetry-data"><a class="header" href="#telemetry-data">Telemetry Data</a></h3>
+<p>The captured telemetry provides insights into:</p>
+<ul>
+<li>Compilation pass execution times</li>
+<li>Memory usage patterns</li>
+<li>Instruction scheduling efficiency</li>
+<li>Vector utilization (Linux profile)</li>
+<li>MMIO/DMA transaction patterns (control-plane profile)</li>
+</ul>
+<h2 id="conclusion"><a class="header" href="#conclusion">Conclusion</a></h2>
+<p>You have successfully learned how to compile neuromorphic models for all three RISC-V target profiles using the Python SDK. Each profile serves different deployment scenarios:</p>
+<ul>
+<li><strong>Linux User Profile</strong>: High-performance applications with vector acceleration</li>
+<li><strong>Bare-Metal Profile</strong>: Embedded systems with strict resource constraints</li>
+<li><strong>Control-Plane Profile</strong>: Host processors managing specialized accelerators</li>
+</ul>
+<h3 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h3>
+<ol>
+<li><strong>Experiment with your own NIR models</strong>: Replace <code>examples/nir/simple.json</code> with your custom network definitions</li>
+<li><strong>Optimize compilation settings</strong>: Explore target-specific configuration options in the <code>.toml</code> manifest files</li>
+<li><strong>Deploy to real hardware</strong>: Use the generated artifacts for actual RISC-V system deployment</li>
+<li><strong>Performance analysis</strong>: Leverage the telemetry data to identify optimization opportunities</li>
+</ol>
+<p>For advanced usage and configuration options, consult the <a href="../backends/riscv.html">RISC-V Backend Documentation</a> and <a href="../python/usage.html">Python API Reference</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../tutorials/backend_authoring.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../notes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../tutorials/backend_authoring.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../notes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,4 @@
+{"ts_ms":1759225733654,"metric":"graph.populations","value":2.0,"labels":{"graph":"example-json","simulator":"neuron"}}
+{"ts_ms":1759225733654,"metric":"graph.connections","value":1.0,"labels":{"graph":"example-json","simulator":"neuron"}}
+{"ts_ms":1759225733654,"metric":"graph.probes","value":1.0,"labels":{"graph":"example-json","simulator":"neuron"}}
+{"ts_ms":1759225733654,"metric":"simulate.emit_ms","value":0.679042,"labels":{"graph":"example-json","simulator":"neuron"}}

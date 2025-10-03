@@ -170,6 +170,46 @@ except Exception as e:
   print("simulate failed or simulator not enabled:", e)
 ```
 
+## Compiling and Running on RISC-V Targets
+
+The neuromorphic compiler supports three distinct RISC-V profiles for different deployment scenarios:
+
+- **Linux User Profile (`riscv64gcv_linux`)**: RV64GCV Linux userspace target with vector extensions and performance counters. Suitable for high-performance applications running in user mode on Linux systems.
+- **Bare-Metal Profile (`riscv32imac_bare`)**: RV32IMAC bare-metal target without vector support. Designed for resource-constrained embedded systems and real-time applications.
+- **Control-Plane Profile (`riscv64gc_ctrl`)**: RV64GC Linux control-plane target for driving neuromorphic accelerators via MMIO/DMA. Used when the RISC-V processor acts as a host controller for specialized hardware.
+
+### Compiling for RISC-V Targets
+
+```python
+import os
+import neuro_compiler as nc
+
+# Read NIR graph from file
+with open("examples/nir/simple.json", "r") as f:
+    nir_content = f.read()
+
+# Set environment variables for simulation execution and telemetry capture
+os.environ["NC_RISCV_QEMU_RUN"] = "1"
+os.environ["NC_PROFILE_JSONL"] = "riscv_profile.jsonl"
+
+# Compile for Linux user profile with vector extensions
+try:
+    artifact_path = nc.compile_nir_str_py("riscv64gcv_linux", nir_content)
+    print(f"Compilation artifacts written to: {artifact_path}")
+    
+    # Read and summarize telemetry data
+    summary = nc.profile_summary_py("riscv_profile.jsonl")
+    print("Telemetry Summary:")
+    print(summary)
+    
+except Exception as e:
+    print(f"Compilation failed: {e}")
+```
+
+**Note**: Running RISC-V simulations requires proper environment setup with `NC_RISCV_QEMU_RUN=1` and external tools (QEMU for user and bare-metal profiles, Renode for control-plane). The compilation produces artifacts in the `target/` directory, and execution telemetry is captured in the specified JSONL file when `NC_PROFILE_JSONL` is set.
+
+For detailed examples of compiling for all three RISC-V profiles and complete setup instructions, see the [RISC-V Python SDK Quickstart Tutorial](../tutorials/riscv_pysdk_quickstart.md).
+
 Recommended build feature sets for common tasks
 - Sim + telemetry (no hardware backends):
   ```bash

@@ -1,0 +1,7 @@
+{
+  "connections": 1,
+  "name": "example-json",
+  "populations": 2,
+  "probes": 1,
+  "simulator": "neuron"
+}
