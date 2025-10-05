@@ -77,6 +77,7 @@ nc-nir = { path = "../nir" }
 nc-passes = { path = "../passes" }
 serde_json = { workspace = true }
 nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }
+nc-runtime = { path = "../runtime", package = "nc-runtime" }
 
 # Optional surface deps (compiled only when features enable them)
 nc-frontend-pynn = { path = "../frontend_pynn", optional = true, package = "nc-frontend-pynn" }

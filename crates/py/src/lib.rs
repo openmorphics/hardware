@@ -46,6 +46,16 @@ pub fn compile_nir_json_str(target: &str, json: &str) -> Result<String> {
             #[cfg(not(feature = "backend-dynaps"))]
             { anyhow::bail!("backend 'dynaps' not enabled; build python crate with feature 'backend-dynaps'"); }
         }
+        // RISC-V targets (compile-only from Python by default).
+        // Runtime execution via QEMU/Renode is controlled out-of-process with env:
+        //   NC_RISCV_QEMU_RUN=1  -> attempt run if toolchains are present
+        //   NC_RISCV_QEMU_RUN=0  -> compile-only (unit tests use this)
+        "riscv64gcv_linux" | "riscv32imac_bare" | "riscv64gc_ctrl" => {
+            #[cfg(feature = "backend-riscv")]
+            { return nc_backend_riscv::compile(&g, &manifest); }
+            #[cfg(not(feature = "backend-riscv"))]
+            { anyhow::bail!("backend 'riscv' not enabled; build python crate with feature 'backend-riscv'"); }
+        }
         other => anyhow::bail!("unsupported target '{other}'"),
     }
 }
@@ -71,6 +81,16 @@ pub fn compile_nir_yaml_str(target: &str, yaml: &str) -> Result<String> {
             { return nc_backend_dynaps::compile(&g, &manifest); }
             #[cfg(not(feature = "backend-dynaps"))]
             { anyhow::bail!("backend 'dynaps' not enabled; build python crate with feature 'backend-dynaps'"); }
+        }
+        // RISC-V targets (compile-only from Python by default).
+        // Runtime execution via QEMU/Renode is controlled out-of-process with env:
+        //   NC_RISCV_QEMU_RUN=1  -> attempt run if toolchains are present
+        //   NC_RISCV_QEMU_RUN=0  -> compile-only (unit tests use this)
+        "riscv64gcv_linux" | "riscv32imac_bare" | "riscv64gc_ctrl" => {
+            #[cfg(feature = "backend-riscv")]
+            { return nc_backend_riscv::compile(&g, &manifest); }
+            #[cfg(not(feature = "backend-riscv"))]
+            { anyhow::bail!("backend 'riscv' not enabled; build python crate with feature 'backend-riscv'"); }
         }
         other => anyhow::bail!("unsupported target '{other}'"),
     }
@@ -362,4 +382,46 @@ fn neuro_compiler(_py: Python, m: &PyModule) -> PyResult<()> {
         simulate_nir_str(simulator, s, out_dir).map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    // Feature-gated Python API test: compile-only for RISC-V (no external tools)
+    #[cfg(all(feature = "backend-riscv", feature = "python"))]
+    #[test]
+    fn py_compile_riscv64gcv_linux_compile_only() {
+        std::env::set_var("NC_RISCV_QEMU_RUN", "0"); // ensure no QEMU/Renode invocation
+        let nir = std::fs::read_to_string("examples/nir/simple.json").expect("read NIR");
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let m = pyo3::types::PyModule::new(py, "neuro_compiler").expect("module new");
+            // Initialize the in-process module with all #[pyfn] exports
+            crate::neuro_compiler(py, m).expect("init module");
+            let f = m.getattr("compile_nir_str_py").expect("get compile_nir_str_py");
+            let art: String = f.call1(("riscv64gcv_linux", nir.as_str()))
+                .expect("call ok")
+                .extract()
+                .expect("extract str");
+            if art.starts_with("artifact:") {
+                let dir = PathBuf::from(art.trim_start_matches("artifact:"));
+                assert!(dir.exists(), "artifact dir should exist: {}", dir.display());
+            } else {
+                assert!(PathBuf::from(&art).exists(), "artifact path should exist: {}", art);
+            }
+        });
+    }
+
+    // Negative test when RISC-V backend feature is NOT enabled
+    #[cfg(not(feature = "backend-riscv"))]
+    #[test]
+    fn riscv_backend_disabled_has_clear_error() {
+        let nir = std::fs::read_to_string("examples/nir/simple.json").expect("read NIR");
+        let err = compile_nir_str("riscv64gcv_linux", &nir).unwrap_err();
+        let s = err.to_string();
+        assert!(s.contains("backend 'riscv' not enabled"), "error: {s}");
+        assert!(s.contains("backend-riscv"), "error: {s}");
+    }
 }

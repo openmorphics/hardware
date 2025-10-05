@@ -26,7 +26,7 @@ A backend provides a unified compile entrypoint that takes:
 - A validated NIR graph (with version tag ensured).
 - A target manifest (HAL) describing hardware capabilities.
 
-It produces an artifact (string path, JSON blob, or other structured artifact) representing a hardware-ready configuration, or a stub in early stages.
+It produces an artifact (string path, JSON blob, or other structured artifact) representing a hardware-ready configuration, or a preliminary artifact in early stages.
 
 Interface (pattern used across backends)
 ```rust

@@ -1,0 +1,18 @@
+{
+  "name": "chain_small",
+  "populations": [
+    { "name": "input", "size": 64, "model": "source", "params": {} },
+    { "name": "l1", "size": 128, "model": "lif", "params": { "tau_m": 0.02, "v_th": 1.0 } },
+    { "name": "l2", "size": 64, "model": "lif", "params": { "tau_m": 0.02, "v_th": 1.0 } }
+  ],
+  "connections": [
+    { "pre": "input", "post": "l1", "weight": 0.5, "delay_ms": 1.0, "plasticity": null },
+    { "pre": "l1", "post": "l2", "weight": -0.2, "delay_ms": 2.0, "plasticity": null }
+  ],
+  "probes": [
+    { "target": "l2", "kind": "spike" }
+  ],
+  "attributes": {
+    "nir_version": "0.0.1"
+  }
+}

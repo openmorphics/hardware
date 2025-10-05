@@ -1,0 +1,8 @@
+This project includes third-party components under their respective licenses:
+- Highlight.js (BSD-3-Clause) — see docs/book/highlight.js
+- Elasticlunr (MIT) — see docs/book/elasticlunr.min.js
+- Font Awesome (various) — see docs/book/FontAwesome/css/font-awesome.css
+- Open Sans (Apache-2.0) — see docs/book/fonts/OPEN-SANS-LICENSE.txt
+- Source Code Pro (OFL) — see docs/book/fonts/SOURCE-CODE-PRO-LICENSE.txt
+
+Distribution of compiled artifacts and wheels must include applicable third-party notices.

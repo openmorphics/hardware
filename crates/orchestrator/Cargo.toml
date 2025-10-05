@@ -11,8 +11,14 @@ path = "src/lib.rs"
 [features]
 default = []
 telemetry = ["dep:nc-telemetry"]
+orchestrator_partition = []
 
 [dependencies]
 anyhow = { workspace = true }
 nc-nir = { path = "../nir" }
 nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }

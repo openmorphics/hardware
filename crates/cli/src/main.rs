@@ -223,7 +223,7 @@ fn main() {
             };
 
             // Build a trivial graph and run through the pipeline with dumps
-            let mut g = nc_nir::Graph::new("cli-lower-stub");
+            let mut g = nc_nir::Graph::new("cli-lower-demo");
             // If provided, load a HAL manifest via --manifest or --target and attach its path for capability-aware passes
             let manifest_path: Option<PathBuf> = args
                 .manifest
@@ -512,7 +512,7 @@ fn main() {
                     }
                     #[cfg(not(feature = "sim-neuron"))]
                     {
-                        println!("simulate stub: simulator=neuron (build CLI with feature 'sim-neuron')");
+                        println!("simulate disabled: feature 'sim-neuron' not enabled; rebuild CLI with --features sim-neuron");
                     }
                 }
                 "coreneuron" => {
@@ -525,7 +525,7 @@ fn main() {
                     }
                     #[cfg(not(feature = "sim-coreneuron"))]
                     {
-                        println!("simulate stub: simulator=coreneuron (build CLI with feature 'sim-coreneuron')");
+                        println!("simulate disabled: feature 'sim-coreneuron' not enabled; rebuild CLI with --features sim-coreneuron");
                     }
                 }
                 "arbor" => {
@@ -538,18 +538,20 @@ fn main() {
                     }
                     #[cfg(not(feature = "sim-arbor"))]
                     {
-                        println!("simulate stub: simulator=arbor (build CLI with feature 'sim-arbor')");
+                        println!("simulate disabled: feature 'sim-arbor' not enabled; rebuild CLI with --features sim-arbor");
                     }
                 }
                 "hw" => {
                     #[cfg(feature = "sim-hw-specific")]
                     {
-                        let r = nc_sim_hw_specific::stub();
-                        println!("simulate ok: {}", r);
+                        match nc_sim_hw_specific::emit_artifacts(&g, &out_dir) {
+                            Ok(_) => println!("simulate artifacts written to {:?}", out_dir),
+                            Err(e) => eprintln!("simulate error: {e}")
+                        }
                     }
                     #[cfg(not(feature = "sim-hw-specific"))]
                     {
-                        println!("simulate stub: simulator=hw (build CLI with feature 'sim-hw-specific')");
+                        println!("simulate disabled: feature 'sim-hw-specific' not enabled; rebuild CLI with --features sim-hw-specific");
                     }
                 }
                 other => {
@@ -585,17 +587,41 @@ fn main() {
                 }
                 #[cfg(not(feature = "telemetry"))]
                 {
-                    println!("profile stub: input={path:?} (build CLI with feature 'telemetry' to summarize JSONL)");
+                    eprintln!("profile disabled: telemetry feature not enabled; input={path:?}; rebuild CLI with --features telemetry to summarize JSONL");
                 }
             } else {
-                println!("profile stub: no input provided");
+                eprintln!("profile disabled: no input provided; telemetry feature required (rebuild with --features telemetry)");
             }
         }
         Some(Command::Package(args)) => {
-            println!("package stub: output={:?}", args.output);
+            // Minimal packaging: create an output directory and write a metadata file
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let out_dir = args
+                .output
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(format!("target/package-{stamp}")));
+            if let Err(e) = fs::create_dir_all(&out_dir) {
+                eprintln!("package: cannot create {:?}: {e}", out_dir);
+                return;
+            }
+            let pkg_file = out_dir.join("PKG.txt");
+            let contents = format!(
+                "neuro-compiler package\ncreated_at_unix={stamp}\ncli_version=0.0.1\n"
+            );
+            match fs::write(&pkg_file, contents) {
+                Ok(_) => println!("package created at {:?}", out_dir),
+                Err(e) => eprintln!("package: failed to write {:?}: {e}", pkg_file),
+            }
         }
         Some(Command::Deploy(args)) => {
-            println!("deploy stub: target={}", args.target);
+            let spec = nc_runtime::DeploySpec { target: args.target.clone() };
+            match nc_runtime::deploy(&spec) {
+                Ok(_) => println!("deploy ok: target={}", args.target),
+                Err(e) => eprintln!("deploy failed: {e}"),
+            }
         }
         Some(Command::ExportMlir(args)) => {
             #[cfg(feature = "mlir")]

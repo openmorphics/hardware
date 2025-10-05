@@ -175,8 +175,90 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="backends---skeleton"><a class="header" href="#backends---skeleton">Backends - Skeleton</a></h1>
-<p>Targets covered by stubs: Loihi2, TrueNorth, Akida, SpiNNaker, Neurogrid, DYNAPs, MemXbar, Custom ASIC.</p>
+                        <h1 id="backends"><a class="header" href="#backends">Backends</a></h1>
+<p>Status: v0.1-draft
+Intent: Declare per-backend capability constraints and mapping expectations that compiler passes must respect.</p>
+<p>Capability categories (declare per backend)</p>
+<ul>
+<li>Supported dtypes (weights/activations/params)</li>
+<li>Max fan-in/fan-out; connectivity limits (dense/sparse)</li>
+<li>Delay range (ticks) and dt constraints</li>
+<li>Plasticity support (static, STDP variants, on/off-chip learning)</li>
+<li>Memory topology (on-chip buffers vs. host memory) and placement constraints</li>
+<li>Execution model (event-driven vs. time-stepped), scheduling granularity, parallelism</li>
+<li>Quantization recommendations (bitwidths, symmetric/asymmetric)</li>
+<li>Unsupported features with actionable fallbacks (e.g., clamp, dequantize)</li>
+</ul>
+<p>Backend declarations (illustrative, not normative)</p>
+<ul>
+<li>Loihi2
+<ul>
+<li>dtypes: weights f16/i8, activations spike/rate f16</li>
+<li>delays: 0..D_max (device-specific)</li>
+<li>plasticity: STDP variants with constraints</li>
+<li>notes: prefer on-chip weights; sparse CSR recommended</li>
+</ul>
+</li>
+<li>TrueNorth
+<ul>
+<li>dtypes: binary/low-bit weights</li>
+<li>plasticity: static only</li>
+<li>notes: strict fan-in limits; recommend partition-first strategies</li>
+</ul>
+</li>
+<li>Akida
+<ul>
+<li>dtypes: low-bit quant; rate-based pipelines supported</li>
+<li>delays: limited; recommend zero/low delay</li>
+</ul>
+</li>
+<li>SpiNNaker
+<ul>
+<li>execution: time-stepped event simulation</li>
+<li>placement: core/memory constraints per chip</li>
+</ul>
+</li>
+<li>Neurogrid
+<ul>
+<li>analog constraints; prefer rate/analog transmissions</li>
+</ul>
+</li>
+<li>DYNAPs
+<ul>
+<li>event-driven; sparse connectivity preferred; plasticity limited</li>
+</ul>
+</li>
+<li>MemXbar
+<ul>
+<li>analog crossbar; quantization and drift constraints</li>
+</ul>
+</li>
+<li>Custom ASIC
+<ul>
+<li>declare explicit constraints; treat as contract between compiler and silicon team</li>
+</ul>
+</li>
+</ul>
+<p>Feature flags and selection</p>
+<ul>
+<li>Cargo features/backends config keys should follow: backend_{name} (e.g., backend_loihi2)</li>
+<li>A backend selection document should map features to pass pipeline variants</li>
+</ul>
+<p>Cross-links</p>
+<ul>
+<li>IR requirements: see <a href="nir.html">nir.md</a></li>
+<li>Pass pipeline: see <a href="passes.html">passes.md</a></li>
+</ul>
+<p>Compliance</p>
+<ul>
+<li>Each backend must provide a minimal suite of conformance tests (fixtures + goldens) verifying that:
+<ul>
+<li>Delay and dtype constraints are enforced</li>
+<li>Plasticity unsupported paths produce actionable diagnostics</li>
+<li>Layout/quant decisions obey memory topologies</li>
+</ul>
+</li>
+</ul>
 
                     </main>
 

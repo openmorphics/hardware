@@ -204,7 +204,7 @@ cargo run -p neuro-compiler-cli -- import --input examples/nir/simple.json
 <ol start="2">
 <li>Run a mapping pipeline (no HAL)</li>
 </ol>
-<pre><code class="language-bash"># Run a basic pipeline over a stub graph and dump intermediate artifacts in JSON
+<pre><code class="language-bash"># Run a basic pipeline over a minimal in-memory graph constructed by the CLI and dump intermediate artifacts in JSON
 cargo run -p neuro-compiler-cli -- lower \
   --pipeline validate,partition,placement,routing,timing,resource-check \
   --dump-dir target/tutorial-dumps \

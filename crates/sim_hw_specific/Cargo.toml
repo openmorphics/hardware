@@ -14,4 +14,5 @@ telemetry = ["dep:nc-telemetry"]
 
 [dependencies]
 anyhow = { workspace = true }
+nc-nir = { path = "../nir" }
 nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }

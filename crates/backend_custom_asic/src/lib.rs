@@ -36,3 +36,25 @@ pub fn compile(graph: &nc_nir::Graph, manifest: &nc_hal::TargetManifest) -> Resu
 
     Ok(artifact)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn compile_smoke() {
+        let g = nc_nir::Graph::new("g");
+        let m = nc_hal::parse_target_manifest_str(r#"
+            name = "custom_asic"
+            vendor = "Generic"
+            family = "ASIC"
+            version = "1"
+            [capabilities]
+            weight_precisions = [8]
+            max_neurons_per_core = 1
+            max_synapses_per_core = 1
+            time_resolution_ns = 1
+        "#).unwrap();
+        let out = compile(&g, &m).expect("compile ok");
+        assert!(out.starts_with("compiled:"));
+    }
+}

@@ -1,0 +1,33 @@
+[advisories]
+vulnerability = "deny"
+unmaintained = "warn"
+yanked = "deny"
+notice = "warn"
+
+[licenses]
+# License policy: Allow common OSS licenses compatible with our UNLICENSED proprietary model
+# Exceptions are granted for specific crates with unique license situations
+# Allow common OSS licenses often used by Rust crates
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-3-Clause",
+  "BSD-2-Clause",
+  "ISC",
+  "Zlib",
+  "MPL-2.0",
+  "Unicode-DFS-2016",
+  "OpenSSL",
+  "CC0-1.0",
+  "BSL-1.0"
+]
+copyleft = "deny"
+default = "deny"
+unused-allowed-license = "warn"
+[[licenses.exceptions]]
+name = "ring"
+allow = ["ISC", "MIT", "OpenSSL"]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -1,0 +1,55 @@
+name: Docs Build and Link Check
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install mdBook and link checker
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v mdbook >/dev/null; then cargo install mdbook --locked; fi
+          if ! command -v mdbook-linkcheck >/dev/null; then cargo install mdbook-linkcheck --locked; fi
+
+      - name: Build docs
+        run: mdbook build docs
+
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: |
+            docs/**/*.md
+            README.md
+            CHANGELOG.md
+
+      - name: Link check (fail on broken links)
+        run: mdbook-linkcheck docs
+
+      - name: Upload book artifacts (on pull request)
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdbook
+          path: docs/book

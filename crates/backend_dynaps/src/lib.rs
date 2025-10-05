@@ -65,3 +65,25 @@ pub fn compile(graph: &nc_nir::Graph, manifest: &nc_hal::TargetManifest) -> Resu
 
     Ok(serde_json::to_string_pretty(&obj)?)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn compile_smoke() {
+        let g = nc_nir::Graph::new("g");
+        let m = nc_hal::parse_target_manifest_str(r#"
+            name = "dynaps"
+            vendor = "Generic"
+            family = "Dynap-SE"
+            version = "1"
+            [capabilities]
+            weight_precisions = [4,8]
+            max_neurons_per_core = 1
+            max_synapses_per_core = 1
+            time_resolution_ns = 1
+        "#).unwrap();
+        let out = compile(&g, &m).expect("compile ok");
+        assert!(out.contains("\"connections\""));
+    }
+}

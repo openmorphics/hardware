@@ -175,13 +175,107 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="pass-catalog---skeleton"><a class="header" href="#pass-catalog---skeleton">Pass Catalog - Skeleton</a></h1>
-<p>Initial stubs:</p>
+                        <h1 id="pass-catalog"><a class="header" href="#pass-catalog">Pass Catalog</a></h1>
+<p>Status: v0.1-draft
+Intent: Define deterministic, composable passes operating over NIR, producing artifacts required by hardware backends.</p>
+<p>Guiding principles</p>
 <ul>
-<li>Legalization</li>
-<li>Timing alignment</li>
-<li>Plasticity lowering</li>
-<li>Partitioning, routing, scheduling</li>
+<li>Deterministic output given fixed inputs and seeds</li>
+<li>Validate early, diagnose precisely, and preserve debuggability via stable textual dumps</li>
+<li>Make each pass responsible for a single concern; use an explicit pipeline descriptor</li>
+</ul>
+<p>Shared interfaces</p>
+<ul>
+<li>Input: NIR (as specified in <a href="nir.html">nir.md</a>)</li>
+<li>Output: either annotated NIR (preferred for early passes) or pass-specific sidecar artifacts (JSON) colocated under target/ or test fixtures</li>
+<li>Diagnostics: machine-parseable codes plus human-friendly messages</li>
+<li>Seeds: all randomized heuristics receive an explicit seed to ensure reproducibility</li>
+</ul>
+<p>Passes</p>
+<ol>
+<li>ValidateNIR (optional but recommended)</li>
+</ol>
+<ul>
+<li>Goal: ensure NIR invariants (ids, shapes, dtypes, delays, quant metadata)</li>
+<li>Output: success/failure with error list (NIR_E*)</li>
+<li>Invariants checked: see <a href="nir.html">nir.md</a> Validation invariants</li>
+<li>Artifacts: validation report (JSON) with error codes and locations</li>
+</ul>
+<ol start="2">
+<li>LowerToKernels</li>
+</ol>
+<ul>
+<li>Goal: map high-level NIR entities into backend-agnostic kernel ops with explicit inputs/outputs/params</li>
+<li>Input: NIR</li>
+<li>Output: NIR + kernels metadata:
+<ul>
+<li>kernels: [{ id, op_type, inputs, outputs, params, device_class }]</li>
+<li>mapping: population/projection ids → kernel ids</li>
+</ul>
+</li>
+<li>Invariants:
+<ul>
+<li>No implicit type conversions; all casts are explicit</li>
+<li>Deterministic ordering of kernels (topological, then stable tie-break)</li>
+</ul>
+</li>
+<li>Artifacts: kernels.json (golden-able), textual dumps for diffing</li>
+</ul>
+<ol start="3">
+<li>MemoryLayoutAndQuant</li>
+</ol>
+<ul>
+<li>Goal: assign concrete layouts (row-major/CSR/etc), memory regions (on/off-chip), and finalize quantization</li>
+<li>Input: NIR + kernels metadata</li>
+<li>Output: annotations:
+<ul>
+<li>tensor_layouts: tensor_id → { layout, strides, region }</li>
+<li>quant_finals: tensor_id → { scheme, scale, zero_point, bitwidth }</li>
+</ul>
+</li>
+<li>Invariants:
+<ul>
+<li>All tensors are assigned exactly one region and layout</li>
+<li>Quant metadata must match storage dtype</li>
+</ul>
+</li>
+<li>Artifacts: layout.json, quant.json; golden snapshots required</li>
+</ul>
+<ol start="4">
+<li>KernelFusionAndScheduling</li>
+</ol>
+<ul>
+<li>Goal: (conservative) fuse kernels to reduce traffic and produce a legal execution schedule</li>
+<li>Input: kernels + layout/quant annotations</li>
+<li>Output: schedule: [{ time_slot, kernel_id(s), constraints }], fusion_groups, and resource_usage summary</li>
+<li>Invariants:
+<ul>
+<li>Resource budgets not exceeded; no cycles; obey delay semantics from <a href="nir.html">nir.md</a></li>
+<li>Deterministic ordering within time_slot and across slots</li>
+</ul>
+</li>
+<li>Artifacts: schedule.json; perf counters (if simulated)</li>
+</ul>
+<p>Pipeline descriptor (YAML example)</p>
+<pre><code class="language-yaml">version: 0.1
+seed: 42
+passes:
+  - validate_nir
+  - lower_to_kernels
+  - memory_layout_and_quant
+  - kernel_fusion_and_scheduling
+artifacts:
+  dir: target/pipeline-out
+  keep_text_dumps: true
+</code></pre>
+<p>Diagnostics and metrics</p>
+<ul>
+<li>All passes emit structured diagnostics with codes, severity, and source locations</li>
+<li>Each pass records runtime, kernel counts, memory footprints; exported as JSON lines for profiling</li>
+</ul>
+<p>Backends</p>
+<ul>
+<li>Backends must publish their capability constraints and mapping expectations in <a href="backends.html">backends.md</a></li>
 </ul>
 
                     </main>

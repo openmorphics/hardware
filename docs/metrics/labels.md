@@ -67,8 +67,8 @@ Where labels are used
 
 Example JSONL records
 ```json
-{"ts_ms": 1736966400000, "metric": "passes.pass_ms", "value": 3.71, "labels": {"graph":"cli-lower-stub","pass":"placement"}}
-{"ts_ms": 1736966400050, "metric": "sim.emit_ms", "value": 12.40, "labels": {"graph":"cli-sim-stub","simulator":"neuron"}}
+{"ts_ms": 1736966400000, "metric": "passes.pass_ms", "value": 3.71, "labels": {"graph":"cli-lower-demo","pass":"placement"}}
+{"ts_ms": 1736966400050, "metric": "sim.emit_ms", "value": 12.40, "labels": {"graph":"cli-sim-demo","simulator":"neuron"}}
 {"ts_ms": 1736966400100, "metric": "backend.compile_ms", "value": 45.2, "labels": {"graph":"example","backend":"loihi","target":"loihi2"}}
 ```
 

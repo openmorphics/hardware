@@ -30,6 +30,11 @@ cargo build -p neuro-compiler-cli --features backend-riscv
     ```
     sudo apt-get install -y clang lld
     ```
+  - Verify tool versions:
+    ```
+    qemu-riscv64 --version
+    riscv64-linux-gnu-gcc --version
+    ```
 - macOS (Homebrew):
   - QEMU:
     ```
@@ -40,6 +45,30 @@ cargo build -p neuro-compiler-cli --features backend-riscv
       ```
       clang --target=riscv64-unknown-linux-gnu ...
       ```
+  - Verify tool versions:
+    ```
+    qemu-riscv64 --version
+    riscv64-linux-gnu-gcc --version   # if you installed a cross GCC; otherwise use clang target above
+    ```
+
+- Windows / WSL (Ubuntu recommended):
+  - Use WSL2 with an Ubuntu distribution for best compatibility.
+  - Install QEMU (user + system) and cross toolchains:
+    ```
+    sudo apt-get update
+    sudo apt-get install -y qemu-user qemu-user-static qemu-system-misc gcc-riscv64-linux-gnu gcc-riscv64-unknown-elf
+    ```
+  - Verify tool versions:
+    ```
+    qemu-riscv64 --version
+    qemu-system-riscv32 --version
+    riscv64-linux-gnu-gcc --version
+    riscv64-unknown-elf-gcc --version
+    ```
+  - Renode (optional, for control-plane sims) can be installed inside WSL:
+    ```
+    pip install renode-colab
+    ```
 
 ## RVV codegen feature flag (riscv-v)
 
@@ -137,10 +166,11 @@ The RVV vectorization path for the linux_user profile is gated behind a crate-lo
   neuro-compiler compile --input examples/nir/simple.json --target riscv64gc_ctrl
   ```
 
-- Lower with RISC-V-oriented passes:
+- Lowering via compile (recommended):
   ```
-  neuro-compiler lower --pipeline "validate,rv-lower,rv-layout,rv-schedule"
+  neuro-compiler compile --input examples/nir/simple.json --target riscv64gcv_linux
   ```
+  Note: Backend-specific passes (e.g., rv-lower/layout/schedule) are owned and wired by the RISC-V backend crate. They may not be directly invocable via the generic lower subcommand unless explicitly exposed. Use compile with a RISC-V target to run the correct pass pipeline.
 
 ### Run under QEMU (optional M1 runner)
 
@@ -155,6 +185,9 @@ The backend attempts best-effort code emission and build. To run the generated b
   export NC_RISCV_QEMU_RUN=1
   neuro-compiler compile --input examples/nir/simple.json --target riscv64gcv_linux
   ```
+  Gating environment variables:
+  - NC_RISCV_QEMU_RUN=1 runs linux_user and bare_metal runtime smokes (qemu); NC_RISCV_QEMU_RUN=0 skips run and compiles only.
+  - RUN_RENODE_TESTS=1 runs control_plane runtime smokes in Renode; RUN_RENODE_TESTS=0 skips and compiles only.
 - If tools are present (`qemu-riscv64` and either `riscv64-linux-gnu-gcc` or `clang --target=riscv64-unknown-linux-gnu`), the backend will:
   - Emit `main.c` and build an RV64 binary
   - Run it under qemu-user

@@ -21,4 +21,5 @@ nc-nir = { path = "../nir" }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 nc-hal = { path = "../hal" }
+nc-orchestrator = { path = "../orchestrator", package = "nc-orchestrator" }
 nc-telemetry = { path = "../telemetry", optional = true, package = "nc-telemetry" }

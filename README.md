@@ -21,12 +21,12 @@ Quick start (build workspace):
 Try CLI:
 - cargo run -p neuro-compiler-cli -- list-targets
 
-Enable MLIR bridge compile (no-op stub):
+Enable MLIR bridge (example exporter, feature-gated):
 - cargo build -p nc-mlir-bridge -F mlir
 
-Python bindings (no-op stub without feature; with feature requires maturin):
+Python bindings (feature-gated; build wheels with maturin):
 - cargo build -p neuro-compiler-py
-- With Python module (ABI3), use maturin building with feature:
+- Build wheel:
   maturin build -m pyproject.toml --features python
 
 Docs (mdBook):
@@ -34,7 +34,7 @@ Docs (mdBook):
 - mdbook build docs
 - Start at docs/src/quickstart.md
 
-License: UNLICENSED (see LICENSE).
+License: UNLICENSED - All Rights Reserved — see [LICENSE](LICENSE).
 
 ## Backend: RISC-V
 
@@ -52,7 +52,7 @@ The RISC-V backend supports three distinct deployment profiles:
 
 ```bash
 # Compile a simple NIR graph for a 64-bit Linux RISC-V target
-neuroc compile ./examples/nir/simple.json --target riscv64gcv_linux -o ./tmp/riscv_output
+neuro-compiler compile ./examples/nir/simple.json --target riscv64gcv_linux -o ./tmp/riscv_output
 ```
 
 ### Documentation

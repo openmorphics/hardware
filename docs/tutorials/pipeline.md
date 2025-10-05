@@ -25,7 +25,7 @@ Under the hood, the CLI uses [nir.Graph](crates/nir/src/lib.rs:1) parsing and [n
 
 2) Run a mapping pipeline (no HAL)
 ```bash
-# Run a basic pipeline over a stub graph and dump intermediate artifacts in JSON
+# Run a basic pipeline over a minimal in-memory graph constructed by the CLI and dump intermediate artifacts in JSON
 cargo run -p neuro-compiler-cli -- lower \
   --pipeline validate,partition,placement,routing,timing,resource-check \
   --dump-dir target/tutorial-dumps \

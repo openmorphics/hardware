@@ -19,7 +19,7 @@ Key code locations
   - NEURON: [crates/sim_neuron/src/lib.rs](crates/sim_neuron/src/lib.rs)
   - CoreNEURON: [crates/sim_coreneuron/src/lib.rs](crates/sim_coreneuron/src/lib.rs)
   - Arbor: [crates/sim_arbor/src/lib.rs](crates/sim_arbor/src/lib.rs)
-  - HW sim stub: [crates/sim_hw_specific/src/lib.rs](crates/sim_hw_specific/src/lib.rs)
+  - HW-specific test adapter: [crates/sim_hw_specific/src/lib.rs](crates/sim_hw_specific/src/lib.rs)
 - Telemetry: [crates/telemetry/src/lib.rs](crates/telemetry/src/lib.rs)
 - CLI: [crates/cli/src/main.rs](crates/cli/src/main.rs), E2E tests: [crates/cli/tests/e2e.rs](crates/cli/tests/e2e.rs)
 - Python bindings: [crates/py/src/lib.rs](crates/py/src/lib.rs), usage doc: [docs/python/usage.md](docs/python/usage.md)
@@ -64,6 +64,26 @@ Key code locations
 
 See: [crates/passes/src/lib.rs](crates/passes/src/lib.rs)
 
+### 2.3 Partitioning constraints (NIR-aligned)
+
+Goals
+- Balance work across partitions, respect capacity/resource hints, minimize inter-partition traffic, and preserve determinism.
+
+Inputs (from NIR and HAL)
+- NIR: populations (size, neuron_type/params), projections (connectivity, weights, delays), optional resource_hints (colocate_with, shard_preference, memory_estimate_bytes).
+- HAL/targets: capacity limits, memory topology, delay/timing constraints (dt, max delay ticks), fan-in/out limits.
+
+Outputs
+- PartitionPlan: number of parts and stable mapping (population/projection → part) emitted to downstream passes.
+
+Determinism
+- For identical inputs and a fixed seed, the partition result must be stable (no non-deterministic iteration orders).
+
+References
+- Orchestrator API and default planner location: [lib.rs](crates/orchestrator/src/lib.rs:1)
+- IR semantics and hints: [nir.md](../spec/nir.md)
+- Pass pipeline interactions: [passes.md](../spec/passes.md)
+
 ## 3. Backends and Simulators
 
 ### 3.1 Backends
@@ -73,8 +93,8 @@ See: [crates/passes/src/lib.rs](crates/passes/src/lib.rs)
 - See backend crates listed above.
 
 ### 3.2 Simulators
-- emit_artifacts(&NIR, out_dir): write runnable artifacts or stubs (e.g., RUN.txt, model_summary.json).
-- Supported surfaces: NEURON, CoreNEURON, Arbor; a HW-specific test stub is included.
+- emit_artifacts(&NIR, out_dir): write runnable artifacts (e.g., RUN.txt, model_summary.json).
+- Supported surfaces: NEURON, CoreNEURON, Arbor; a minimal HW-specific test adapter is included.
 - Telemetry timers/counters integrated behind features.
 - See simulator crates listed above.
 

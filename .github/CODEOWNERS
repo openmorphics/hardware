@@ -1,0 +1,7 @@
+# CODEOWNERS
+# Replace team handles with real users/teams in this organization
+*       @neuro-compiler/maintainers
+crates/backend_riscv/   @neuro-compiler/riscv
+crates/cli/             @neuro-compiler/cli
+docs/                    @neuro-compiler/docs
+.github/workflows/       @neuro-compiler/ci

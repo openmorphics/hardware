@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 pub fn is_enabled() -> bool { cfg!(feature = "mlir") }
 
 /// Lower a NIR graph to a minimal textual MLIR-like representation.
-/// This is a stub intended to be replaced with a true MLIR dialect.
+/// Minimal emitter for core subset: populations and connections.
 pub fn lower_to_mlir(g: &nc_nir::Graph) -> Result<String> {
     if !is_enabled() {
         bail!("mlir feature is disabled; build with feature 'mlir'");

@@ -16,6 +16,7 @@ default = []
 python = ["pyo3"]
 backend-truenorth = ["dep:nc-backend-truenorth"]
 backend-dynaps = ["dep:nc-backend-dynaps"]
+backend-riscv = ["dep:nc-backend-riscv"]
 # Optional simulator features for Python crate
 sim-neuron = ["dep:nc-sim-neuron"]
 sim-coreneuron = ["dep:nc-sim-coreneuron"]
@@ -33,6 +34,7 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 nc-backend-truenorth = { path = "../backend_truenorth", optional = true, package = "nc-backend-truenorth" }
 nc-backend-dynaps = { path = "../backend_dynaps", optional = true, package = "nc-backend-dynaps" }
+nc-backend-riscv = { path = "../backend_riscv", optional = true, package = "nc-backend-riscv" }
 # Optional simulator crates
 nc-sim-neuron = { path = "../sim_neuron", optional = true, package = "nc-sim-neuron" }
 nc-sim-coreneuron = { path = "../sim_coreneuron", optional = true, package = "nc-sim-coreneuron" }

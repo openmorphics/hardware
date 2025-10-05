@@ -1,0 +1,51 @@
+name = "riscv64gcv_linux"
+vendor = "Generic"
+family = "RISC-V"
+version = "1"
+notes = "RV64GCV Linux userspace target with vector and counters."
+
+[capabilities]
+# Basic capabilities to satisfy HAL validation and enable pass modeling.
+on_chip_learning = false
+weight_precisions = [8, 16, 32]
+max_neurons_per_core = 100000000   # CPU: treat as large; used only for coarse checks
+max_synapses_per_core = 100000000
+time_resolution_ns = 1
+
+# Expanded capabilities
+supports_sparse = true
+neuron_models = ["LIF"]
+max_fan_in = 1000000
+max_fan_out = 1000000
+core_memory_kib = 1048576  # 1 GiB expressed in KiB for modeling on host
+interconnect_bandwidth_mbps = 25000
+analog = false
+on_chip_plasticity_rules = []
+
+# Modeling hints
+neuron_mem_kib_per = 0.00001
+syn_mem_kib_per = 0.000001
+bytes_per_event = 64
+default_spike_rate_hz = 50.0
+
+# CPU/RISC-V optional fields
+isa = "rv64gcv"
+abi = "lp64d"
+has_vector = true
+vlen_bits_max = 512
+zvl_bits_min = 128
+vlen_is_dynamic = true
+has_zicntr = true
+has_zihpm = true
+extensions = ["zba","zbb","zbs","v"]
+
+# Memory/layout
+endianness = "little"
+cacheline_bytes = 64
+page_size_bytes = 4096
+code_model = "medany"
+
+# MMIO/DMA and profile
+mmio_supported = false
+dma_supported = false
+profile = "linux_user"

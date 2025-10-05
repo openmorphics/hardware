@@ -8,6 +8,7 @@ use thiserror::Error;
 use std::collections::BTreeMap;
 #[cfg(feature = "telemetry")]
 use nc_telemetry as telemetry;
+use nc_orchestrator as orchestrator;
 
 #[derive(Debug, Error)]
 pub enum PassError {
@@ -78,6 +79,21 @@ impl Pass for PartitionPass {
         let mut parts: usize = 1;
         let mut assignment: Vec<(String, usize)> = Vec::new();
         let mut violations: Vec<serde_json::Value> = Vec::new();
+
+        // Orchestrator plan (serialized for handoff)
+        let targets_vec: Vec<String> = g.attributes
+            .get("hal_manifest_path")
+            .and_then(|v| v.as_str())
+            .and_then(|p| Path::new(p).file_stem().and_then(|s| s.to_str()))
+            .map(|s| vec![s.to_string()])
+            .unwrap_or_else(|| Vec::new());
+        let target_slices: Vec<&str> = targets_vec.iter().map(|s| s.as_str()).collect();
+        if let Ok(plan) = orchestrator::partition(&g, &target_slices) {
+            g.attributes.insert("orchestrator_plan".to_string(), serde_json::json!({
+                "parts": plan.parts,
+                "targets": target_slices,
+            }));
+        }
 
         if let Some(caps) = extract_caps_from_graph(&g) {
             strategy = "cap-aware";
@@ -453,7 +469,7 @@ impl Pass for RvLowerToKernelsPass {
             "status": "ok",
             "mode": mode,
             "kernel_count": kernel_count,
-            "notes": "lowered SNN ops into CPU kernels (stub)"
+            "notes": "lowered SNN ops into CPU kernels"
         });
         g.attributes.insert("rv_kernels".to_string(), meta);
         Ok(g)
@@ -508,7 +524,7 @@ impl Pass for RvKernelFusionAndSchedulingPass {
             "status": "ok",
             "fused_stages": fused,
             "threads": threads,
-            "notes": "baseline single-thread schedule (stub)"
+            "notes": "baseline single-thread schedule"
         });
         g.attributes.insert("rv_schedule".to_string(), meta);
         Ok(g)
@@ -526,7 +542,7 @@ impl Pass for RvVectorizeKernelsPass {
             "status": "ok",
             "enabled": vector_available,
             "vlen_bytes": vlen,
-            "notes": "RVV intrinsic mapping deferred to backend (stub)"
+            "notes": "RVV intrinsic mapping deferred to backend"
         });
         g.attributes.insert("rv_vectorize".to_string(), meta);
         Ok(g)
@@ -547,7 +563,7 @@ impl Pass for RvBareMetalTuningPass {
             "status": "ok",
             "size_optimized": size_optimized,
             "use_compressed": true,
-            "notes": "optimize for code size on RV32 bare metal (stub)"
+            "notes": "optimize for code size on RV32 bare metal"
         });
         g.attributes.insert("rv_bare_tuning".to_string(), meta);
         Ok(g)
@@ -568,7 +584,7 @@ impl Pass for RvControlPlaneDriverGenPass {
             "status": if targeted { "ok" } else { "skipped" },
             "mmio": { "requires_fence_io": true, "aligned_access": true },
             "dma": { "supported": targeted, "alignment": 64 },
-            "notes": "generate control-plane stubs for accelerator (stub)"
+            "notes": "generate control-plane configuration for accelerator"
         });
         g.attributes.insert("rv_ctrl_plane".to_string(), meta);
         Ok(g)

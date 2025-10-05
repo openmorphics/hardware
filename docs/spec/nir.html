@@ -175,12 +175,150 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="nir-neuromorphic-intermediate-representation---skeleton"><a class="header" href="#nir-neuromorphic-intermediate-representation---skeleton">NIR (Neuromorphic Intermediate Representation) - Skeleton</a></h1>
-<p>Scope:</p>
+                        <h1 id="nir-neuromorphic-intermediate-representation"><a class="header" href="#nir-neuromorphic-intermediate-representation">NIR (Neuromorphic Intermediate Representation)</a></h1>
+<p>Status: v0.1-draft
+Audience: compiler/backend authors, frontend importers, tooling integrators.</p>
+<p>Purpose</p>
 <ul>
-<li>Populations, connections, delays (stubs)</li>
-<li>Event timing and hybrid dialect placeholders</li>
-<li>Serialization hooks (serde) planned</li>
+<li>Provide a stable, deterministic IR to represent spiking/rate/hybrid neural workloads.</li>
+<li>Serve as the contract between frontends, the orchestrator/partitioner, compiler passes, and hardware backends.</li>
+</ul>
+<p>Core concepts</p>
+<ul>
+<li>Network: top-level container with global metadata (name, version, dt, units).</li>
+<li>Population: homogeneous group of neurons with shared neuron_type and parameter schema.
+<ul>
+<li>Fields: id (string), size (u32), neuron_type (string), params (object), resource_hints (optional).</li>
+</ul>
+</li>
+<li>Projection: directed connectivity between a source and a destination population.
+<ul>
+<li>Fields: id (string), src (population id), dst (population id), connectivity (dense|sparse), weights, delays, plasticity, transmission (spike|rate|analog), params (object).</li>
+<li>Connectivity:
+<ul>
+<li>dense: shape [dst.size, src.size] (row-major dst×src) or compact block specs</li>
+<li>sparse: coordinate list with (dst_index, src_index, w[, delay]) sorted by dst_index then src_index</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Signal: the value kind carried along projections (e.g., spike, rate, analog current).</li>
+</ul>
+<p>Types and shapes</p>
+<ul>
+<li>Scalar types: i8, i16, i32, u8, u16, u32, f16, bf16, f32.</li>
+<li>Shapes: [] (scalar), [N], [N,M]; all shapes are explicit, row-major unless declared otherwise.</li>
+<li>Quantization:
+<ul>
+<li>Per-field quant: { scheme: affine|symmetric|power_of_two, scale: f32, zero_point: i32, bitwidth: 4|8|16 }</li>
+<li>Quant scopes: population.params.<em>, projection.weights, projection.params.</em> (explicitly declared).</li>
+</ul>
+</li>
+<li>Units:
+<ul>
+<li>time: seconds (s); dt (global) is a positive f32 in seconds; delays are non-negative integer ticks where delay_ticks = round(delay_seconds/dt).</li>
+</ul>
+</li>
+</ul>
+<p>Timing and scheduling semantics</p>
+<ul>
+<li>Discrete-time global step of size dt. At step t:
+<ol>
+<li>Populations update intrinsic state given inputs scheduled for t (post-delay).</li>
+<li>Emitted outputs are staged on projections with their per-edge/per-projection delay.</li>
+<li>Plasticity updates (if enabled) applied after state/output update.</li>
+</ol>
+</li>
+<li>Hybrid (event + sampled) allowed by declaring transmission=spike|rate|analog per projection.</li>
+<li>Determinism requirements:
+<ul>
+<li>Given fixed inputs, params, and seed, all reductions must be ordered; any parallel reductions must be made deterministic (e.g., sort indices, Kahan sum or fixed order).</li>
+</ul>
+</li>
+</ul>
+<p>Resources and placement hints (optional)</p>
+<ul>
+<li>resource_hints on populations: { memory_estimate_bytes, compute_class: "cpu"|"gpu"|"neuro", colocate_with: [pop_id], shard_preference: "split_src"|"split_dst"|null }.</li>
+<li>resource_hints on projections: { prefer_on_chip: bool, fanin_limit: u32, route_budget: u32 }.</li>
+</ul>
+<p>Serialization</p>
+<ul>
+<li>Format: JSON (normative) and YAML (informative). All ids are strings; enums are lower_snake_case.</li>
+<li>Top-level object:
+<ul>
+<li>version: "0.1"</li>
+<li>dt: f32 seconds</li>
+<li>populations: [Population]</li>
+<li>projections: [Projection]</li>
+<li>metadata: object (free-form)</li>
+</ul>
+</li>
+<li>Example (truncated):
+<pre><code class="language-json">{
+  "version": "0.1",
+  "dt": 0.001,
+  "populations": [
+    { "id": "input", "size": 1024, "neuron_type": "source", "params": {} },
+    { "id": "l1", "size": 2048, "neuron_type": "lif", "params": { "tau_m": 0.02, "v_th": 1.0 } }
+  ],
+  "projections": [
+    {
+      "id": "p_in_l1",
+      "src": "input",
+      "dst": "l1",
+      "connectivity": "sparse",
+      "transmission": "spike",
+      "weights": { "type": "f16", "layout": "csr", "values": [[0,1,0.5],[1,7,-0.2]] },
+      "delays": { "ticks": 1 },
+      "plasticity": { "rule": "static" },
+      "params": {}
+    }
+  ],
+  "metadata": { "name": "toy" }
+}
+</code></pre>
+</li>
+<li>Field naming is stable; additions must be backward compatible (new optional fields).</li>
+</ul>
+<p>Validation invariants</p>
+<ul>
+<li>Unique ids across populations and projections.</li>
+<li>Projections reference existing populations.</li>
+<li>Shapes and dtypes match declared neuron/projection schemas.</li>
+<li>dt &gt; 0, delay_ticks ≥ 0 and within backend-declared limits when known.</li>
+<li>No negative weights if the backend backend_disallows_negative_weights=true (when declared later in mapping).</li>
+<li>Quantization metadata must match tensor dtypes (e.g., 8-bit quant implies i8/u8 storage).</li>
+<li>Deterministic ordering: sparse coordinates are sorted by (dst, src).</li>
+</ul>
+<p>Error taxonomy (prefix: NIR_E*)</p>
+<ul>
+<li>NIR_E001 MissingPopulationRef</li>
+<li>NIR_E002 InvalidShapeOrDType</li>
+<li>NIR_E003 DelayOutOfRange</li>
+<li>NIR_E004 QuantizationMismatch</li>
+<li>NIR_E005 NonDeterministicReduction</li>
+<li>NIR_E006 UnsupportedTransmissionMode</li>
+<li>NIR_E007 PlasticityRuleUnsupported</li>
+</ul>
+<p>Versioning and compatibility</p>
+<ul>
+<li>Document-level: version string (semantic: MAJOR.MINOR).</li>
+<li>Field-level: new optional fields permitted; removals or semantic changes require MAJOR bump.</li>
+</ul>
+<p>Pass boundaries (for compiler authors)</p>
+<ul>
+<li>Consumers should rely on the contracts defined in <a href="passes.html">passes.md</a> for:
+<ul>
+<li>Lowering to kernel-level ops</li>
+<li>Memory layout and quantization decisions</li>
+<li>Fusion and scheduling artifacts</li>
+</ul>
+</li>
+<li>Backends must publish capability constraints in <a href="backends.html">backends.md</a> and ensure mapping is total or produce actionable diagnostics.</li>
+</ul>
+<p>Conformance and determinism tests</p>
+<ul>
+<li>Provide golden JSON/YAML roundtrips; enforce sorting of sparse coords; seed must produce the same kernel order and schedule when combined with pass pipeline configuration.</li>
 </ul>
 
                     </main>

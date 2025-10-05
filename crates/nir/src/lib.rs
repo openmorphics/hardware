@@ -173,6 +173,102 @@ impl Graph {
 
 pub const VERSION: &str = "0.0.1";
 
+/// Pre-built NIR graph generators for tests and examples.
+pub mod fixtures {
+    use super::*;
+    use serde_json::json;
+
+    /// Construct a simple feed-forward chain of populations.
+    /// - layer_sizes: sizes of successive layers (len >= 1). layer[0] is "source".
+    /// Population ids: p0, p1, ..., p{n-1}
+    /// Connections: p{i} -> p{i+1} with weight=0.5, delay_ms=1.0
+    pub fn chain(layer_sizes: &[u32]) -> Graph {
+        assert!(!layer_sizes.is_empty(), "layer_sizes must be non-empty");
+        let mut g = Graph::new("chain");
+        for (i, sz) in layer_sizes.iter().enumerate() {
+            let name = format!("p{}", i);
+            let (model, params) = if i == 0 {
+                ("source".to_string(), json!({}))
+            } else {
+                ("lif".to_string(), json!({"tau_m": 0.02, "v_th": 1.0}))
+            };
+            g.populations.push(Population {
+                name,
+                size: *sz,
+                model,
+                params,
+            });
+        }
+        for i in 0..(layer_sizes.len() - 1) {
+            g.connections.push(Connection {
+                pre: format!("p{}", i),
+                post: format!("p{}", i + 1),
+                weight: 0.5,
+                delay_ms: 1.0,
+                plasticity: None,
+            });
+        }
+        g.ensure_version_tag();
+        g
+    }
+
+    /// Construct a star graph: one center to N spokes (center -> spoke).
+    /// Population ids: center, s0..s{spokes-1}
+    pub fn star(center_size: u32, spoke_size: u32, spokes: u32, weight: f32, delay_ms: f32) -> Graph {
+        assert!(spokes > 0, "spokes must be > 0");
+        let mut g = Graph::new("star");
+        g.populations.push(Population {
+            name: "center".into(),
+            size: center_size,
+            model: "lif".into(),
+            params: json!({"tau_m": 0.02, "v_th": 1.0}),
+        });
+        for i in 0..spokes {
+            let sname = format!("s{}", i);
+            g.populations.push(Population {
+                name: sname.clone(),
+                size: spoke_size,
+                model: "lif".into(),
+                params: json!({"tau_m": 0.02, "v_th": 1.0}),
+            });
+            g.connections.push(Connection {
+                pre: "center".into(),
+                post: sname,
+                weight,
+                delay_ms,
+                plasticity: None,
+            });
+        }
+        g.ensure_version_tag();
+        g
+    }
+
+    /// Construct a ring of N populations with edges i -> (i+1) mod N.
+    pub fn ring(n: u32, size: u32, weight: f32, delay_ms: f32) -> Graph {
+        assert!(n >= 2, "ring requires n >= 2");
+        let mut g = Graph::new("ring");
+        for i in 0..n {
+            g.populations.push(Population {
+                name: format!("n{}", i),
+                size,
+                model: "lif".into(),
+                params: json!({"tau_m": 0.02, "v_th": 1.0}),
+            });
+        }
+        for i in 0..n {
+            let dst = (i + 1) % n;
+            g.connections.push(Connection {
+                pre: format!("n{}", i),
+                post: format!("n{}", dst),
+                weight,
+                delay_ms,
+                plasticity: None,
+            });
+        }
+        g.ensure_version_tag();
+        g
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

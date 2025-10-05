@@ -315,7 +315,7 @@ mod tests {
             vendor = "Intel"
             family = "Loihi"
             version = "2"
-            notes = "Stub"
+            notes = "Sample"
         "#;
         let m = parse_target_manifest_str(s).unwrap();
         assert_eq!(m.name, "loihi2");

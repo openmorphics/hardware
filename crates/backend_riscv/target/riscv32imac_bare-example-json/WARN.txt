@@ -1,0 +1,1 @@
+no suitable RISC-V bare-metal toolchain found to build "target/riscv32imac_bare-example-json/firmware.elf"

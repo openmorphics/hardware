@@ -1,0 +1,22 @@
+name: guard-no-stubs
+
+on:
+  pull_request:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  no-stubs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if 'cli-lower-stub' appears in tracked files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -- 'cli-lower-stub'; then
+            echo "::error title=Forbidden pattern found::The string 'cli-lower-stub' must not appear in tracked files."
+            exit 1
+          fi
+          echo "No forbidden stub strings found."

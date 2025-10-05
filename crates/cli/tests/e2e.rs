@@ -47,8 +47,16 @@ fn lower_with_mapping_passes_and_dumps() {
         .stdout(
             predicate::str::contains("lower completed")
         );
+    // Verify orchestrator→passes handoff metadata exists in partition dump (best-effort).
+    {
+        use std::fs;
+        if let Ok(data) = fs::read_to_string("target/test-dumps/01_partition.json") {
+            assert!(data.contains("\"orchestrator_plan\""), "expected orchestrator_plan metadata in partition dump");
+        }
+    }
 }
 
+#[cfg(feature = "sim-neuron")]
 #[test]
 fn simulate_smoke() {
     use std::path::PathBuf;
@@ -66,13 +74,33 @@ fn simulate_smoke() {
         "--input", input.to_str().unwrap(),
         "--out-dir", out_dir.to_str().unwrap(),
     ]);
-    // Be tolerant of builds without sim-neuron feature: accept either real artifacts message or stub message.
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("simulate"));
+        .stdout(predicate::str::contains("simulate artifacts written to"));
+    // Verify artifacts exist when feature is enabled
+    let _ = fs::metadata(out_dir.join("RUN.txt")).expect("expected RUN.txt when sim-neuron enabled");
+}
 
-    // If artifacts were produced (feature enabled), RUN.txt should exist; otherwise skip the check.
-    let _ = fs::metadata(out_dir.join("RUN.txt"));
+#[cfg(not(feature = "sim-neuron"))]
+#[test]
+fn simulate_smoke_disabled() {
+    use std::path::PathBuf;
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let crate_dir = PathBuf::from(manifest_dir);
+    let ws_root = crate_dir.parent().and_then(|p| p.parent()).expect("ws root");
+    let input = ws_root.join("examples/nir/simple.json");
+    let out_dir = PathBuf::from("target/sim-neuron-out");
+
+    let mut cmd = bin();
+    cmd.args([
+        "simulate",
+        "--simulator", "neuron",
+        "--input", input.to_str().unwrap(),
+        "--out-dir", out_dir.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("simulate disabled: feature 'sim-neuron' not enabled"));
 }
 
 #[cfg(feature = "telemetry-otlp")]
@@ -111,6 +139,7 @@ fn lower_with_target_manifest() {
         .stdout(predicate::str::contains("lower completed"));
 }
 
+#[cfg(feature = "sim-neuron")]
 #[test]
 fn simulate_with_profile_jsonl_smoke() {
     use std::path::PathBuf;
@@ -132,15 +161,44 @@ fn simulate_with_profile_jsonl_smoke() {
         "--out-dir", out_dir.to_str().expect("out path"),
         "--profile-jsonl", profile.to_str().expect("profile path"),
     ]);
-    // Tolerate feature gating: success + "simulate" in stdout regardless of telemetry availability
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("simulate"));
+        .stdout(predicate::str::contains("simulate artifacts written to"));
 
-    // If telemetry is enabled, profile JSONL should exist and be non-empty; otherwise skip
-    if let Ok(data) = fs::read_to_string(&profile) {
-        assert!(!data.trim().is_empty(), "profile JSONL exists but is empty");
+    #[cfg(feature = "telemetry")]
+    {
+        // With telemetry enabled, profile JSONL should exist and be non-empty
+        if let Ok(data) = fs::read_to_string(&profile) {
+            assert!(!data.trim().is_empty(), "profile JSONL exists but is empty");
+        } else {
+            panic!("expected profile JSONL when telemetry is enabled");
+        }
     }
+}
+
+#[cfg(not(feature = "sim-neuron"))]
+#[test]
+fn simulate_with_profile_jsonl_smoke_disabled() {
+    use std::path::PathBuf;
+
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let crate_dir = PathBuf::from(manifest_dir);
+    let ws_root = crate_dir.parent().and_then(|p| p.parent()).expect("ws root");
+    let input = ws_root.join("examples/nir/simple.json");
+    let out_dir = PathBuf::from("target/sim-neuron-out");
+    let profile = PathBuf::from("target/sim-prof.jsonl");
+
+    let mut cmd = bin();
+    cmd.args([
+        "simulate",
+        "--simulator", "neuron",
+        "--input", input.to_str().expect("input path"),
+        "--out-dir", out_dir.to_str().expect("out path"),
+        "--profile-jsonl", profile.to_str().expect("profile path"),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("simulate disabled: feature 'sim-neuron' not enabled"));
 }
 
 #[test]
@@ -234,4 +292,41 @@ fn riscv_compile_smoke_no_qemu() {
     cmd.assert()
         .success()
         .stdout(pred);
+}
+
+
+#[test]
+fn package_creates_artifacts() {
+    use std::fs;
+    use std::path::PathBuf;
+
+    let out = PathBuf::from("target/pkg-e2e");
+    let _ = fs::remove_dir_all(&out);
+
+    let mut cmd = bin();
+    cmd.args([
+        "package",
+        "--output",
+        out.to_str().expect("out path"),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("package created at"));
+
+    let pkg = out.join("PKG.txt");
+    let meta = fs::read_to_string(&pkg).expect("PKG.txt exists");
+    assert!(meta.contains("neuro-compiler package"), "unexpected PKG.txt contents: {}", meta);
+}
+
+#[test]
+fn deploy_smoke() {
+    let mut cmd = bin();
+    cmd.args([
+        "deploy",
+        "--target",
+        "loihi2",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("deploy ok: target=loihi2"));
 }

@@ -11,10 +11,73 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
       - name: Cargo build
         run: cargo build --workspace --all-features
       - name: Cargo test
         run: cargo test --workspace
+
+  lint-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Clippy (deny warnings)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --workspace --all-features -- -D warnings
+
+  fmt-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: rustfmt (check mode)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup component add rustfmt
+          cargo fmt --all -- --check
+
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pre-commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          pip install pre-commit
+          pre-commit --version
+      - name: Run pre-commit hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          pre-commit run --all-files --color always
+
+  actionlint-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actionlint
+        uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-pr-check
+          level: error
 
   rust-feature-matrix:
     runs-on: ubuntu-latest
@@ -24,6 +87,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
       - name: Matrix build ${{ matrix.variant }}
         shell: bash
         run: |
@@ -47,7 +119,7 @@ jobs:
               ;;
           esac
 
-  riscv-renode:
+  riscv-renode-control-plane:
     runs-on: ubuntu-latest
     env:
       RUN_RENODE_TESTS: "1"
@@ -55,6 +127,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -68,34 +149,148 @@ jobs:
       - name: Build RISC-V backend
         run: |
           cargo build -p nc-backend-riscv
-      - name: Test RISC-V backend with Renode
+      - name: Prepare profile JSONL path
         run: |
-          cargo test -p nc-backend-riscv renode_control_plane_smoke_if_available -- --nocapture
+          set -euo pipefail
+          mkdir -p ci-artifacts
+          echo "NC_PROFILE_JSONL=$GITHUB_WORKSPACE/ci-artifacts/control_plane.jsonl" >> "$GITHUB_ENV"
+      - name: Echo gating vars
+        run: |
+          echo "NC_RISCV_QEMU_RUN=${NC_RISCV_QEMU_RUN:-unset}"
+          echo "RUN_RENODE_TESTS=${RUN_RENODE_TESTS:-unset}"
+          echo "NC_PROFILE_JSONL=${NC_PROFILE_JSONL:-unset}"
+      - name: Test RISC-V backend with Renode (with retry)
+        shell: bash
+        run: |
+          attempts=0
+          while true; do
+            cargo test -p nc-backend-riscv renode_control_plane_smoke_if_available -- --nocapture && break
+            attempts=$((attempts+1))
+            if [ "$attempts" -ge 2 ]; then
+              echo "Renode smoke failed after $attempts attempts"
+              exit 1
+            fi
+            echo "Retrying Renode smoke (attempt $((attempts+1)))..."
+            sleep 5
+          done
+      - name: Assert JSONL artifact
+        run: |
+          set -euo pipefail
+          if [ "${ASSERT_FLAG}" = "bare" ]; then
+            if [ "${NC_RISCV_QEMU_RUN:-0}" = "1" ]; then
+              test -n "${NC_PROFILE_JSONL:-}" && test -s "${NC_PROFILE_JSONL}" || { echo "::error::Missing or empty JSONL at ${NC_PROFILE_JSONL}"; exit 1; }
+            else
+              echo "SKIP: NC_RISCV_QEMU_RUN!=1; compile-only path"
+            fi
+          else
+            if [ "${RUN_RENODE_TESTS:-0}" = "1" ]; then
+              test -n "${NC_PROFILE_JSONL:-}" && test -s "${NC_PROFILE_JSONL}" || { echo "::error::Missing or empty JSONL at ${NC_PROFILE_JSONL}"; exit 1; }
+            else
+              echo "SKIP: RUN_RENODE_TESTS!=1; compile-only path"
+            fi
+          fi
+        env:
+          ASSERT_FLAG: control
 
-  riscv-renode:
+  riscv-qemu-user-linux:
     runs-on: ubuntu-latest
     env:
-      RUN_RENODE_TESTS: "1"
       NC_RISCV_QEMU_RUN: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
         with:
-          python-version: '3.11'
-      - name: Install RISC-V toolchain
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Install RISC-V user-mode tools
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user qemu-user-static
-      - name: Install Renode
+          sudo apt-get install -y qemu-user qemu-user-static gcc-riscv64-linux-gnu
+      - name: Build CLI and RISC-V backend
+        shell: bash
         run: |
-          pip install renode-colab
-      - name: Build RISC-V backend
+          set -euo pipefail
+          cargo build -p neuro-compiler-cli -F backend-riscv -p nc-backend-riscv
+      - name: Linux user smoke: compile and run via qemu-user
+        shell: bash
         run: |
-          cargo build -p nc-backend-riscv
-      - name: Test RISC-V backend with Renode
+          set -euo pipefail
+          export NC_PROFILE_JSONL=target/ci-riscv-user.jsonl
+          cargo run -p neuro-compiler-cli -F backend-riscv -- compile --input examples/nir/simple.json --target riscv64gcv_linux
+          test -s target/ci-riscv-user.jsonl
+          head -n 5 target/ci-riscv-user.jsonl || true
+
+  riscv-qemu-system-bare:
+    runs-on: ubuntu-latest
+    env:
+      NC_RISCV_QEMU_RUN: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Install RISC-V bare-metal tools
+        shell: bash
         run: |
-          cargo test -p nc-backend-riscv renode_control_plane_smoke_if_available -- --nocapture
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-misc gcc-riscv64-unknown-elf
+          qemu-system-riscv32 --version
+          riscv64-unknown-elf-gcc --version
+      - name: Build CLI and RISC-V backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build -p neuro-compiler-cli -F backend-riscv -p nc-backend-riscv
+      - name: Prepare profile JSONL path
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts
+          echo "NC_PROFILE_JSONL=$GITHUB_WORKSPACE/ci-artifacts/bare_metal.jsonl" >> "$GITHUB_ENV"
+      - name: Echo gating vars
+        run: |
+          echo "NC_RISCV_QEMU_RUN=${NC_RISCV_QEMU_RUN:-unset}"
+          echo "RUN_RENODE_TESTS=${RUN_RENODE_TESTS:-unset}"
+          echo "NC_PROFILE_JSONL=${NC_PROFILE_JSONL:-unset}"
+      - name: Bare-metal smoke: compile and run via qemu-system
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p neuro-compiler-cli -F backend-riscv -- compile --input examples/nir/simple.json --target riscv32imac_bare
+          ls -la target | sed -n '1,200p'
+      - name: Assert JSONL artifact
+        run: |
+          set -euo pipefail
+          if [ "${ASSERT_FLAG}" = "bare" ]; then
+            if [ "${NC_RISCV_QEMU_RUN:-0}" = "1" ]; then
+              test -n "${NC_PROFILE_JSONL:-}" && test -s "${NC_PROFILE_JSONL}" || { echo "::error::Missing or empty JSONL at ${NC_PROFILE_JSONL}"; exit 1; }
+            else
+              echo "SKIP: NC_RISCV_QEMU_RUN!=1; compile-only path"
+            fi
+          else
+            if [ "${RUN_RENODE_TESTS:-0}" = "1" ]; then
+              test -n "${NC_PROFILE_JSONL:-}" && test -s "${NC_PROFILE_JSONL}" || { echo "::error::Missing or empty JSONL at ${NC_PROFILE_JSONL}"; exit 1; }
+            else
+              echo "SKIP: RUN_RENODE_TESTS!=1; compile-only path"
+            fi
+          fi
+        env:
+          ASSERT_FLAG: bare
 
   python-wheels:
     strategy:
@@ -106,6 +301,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -127,3 +331,581 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
           path: target/wheels/*.whl
+
+  python-wheels-riscv:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.11']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install maturin
+        run: pip install maturin
+      - name: Build Python wheel (riscv + telemetry)
+        shell: bash
+        run: |
+          set -euo pipefail
+          maturin build -m pyproject.toml -F python -F backend-riscv -F telemetry
+      - name: Python smoke (RISC-V targets compile-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          pip install target/wheels/*.whl
+          python - <<'PY'
+          import os, json
+          import neuro_compiler as nc
+          os.environ["NC_RISCV_QEMU_RUN"] = "0"
+          ts = nc.list_targets_py()
+          print("targets:", ts)
+          assert any(t.startswith("riscv") for t in ts), "RISC-V targets missing in wheel"
+          with open("examples/nir/simple.json","r") as f:
+              nir = f.read()
+          for tgt in ["riscv64gcv_linux", "riscv32imac_bare", "riscv64gc_ctrl"]:
+              try:
+                  art = nc.compile_nir_str_py(tgt, nir)
+                  print(f"artifact[{tgt}]:", art)
+              except Exception as e:
+                  raise SystemExit(f"compile smoke failed for {tgt}: {e}")
+          PY
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-riscv-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: target/wheels/*.whl
+
+  riscv-rvv-feature-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Backend RVV feature smoke (no toolchain required)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test -p nc-backend-riscv --features riscv-v qemu_user_vector_smoke_if_available -- --nocapture
+
+  mlir-feature-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: MLIR bridge feature smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test -p nc-mlir-bridge --features mlir -- --nocapture
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install cargo-audit
+      - name: Run cargo audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo audit
+
+  minimal-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Minimal versions build (nightly)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo update -Z minimal-versions
+          cargo build --workspace
+          cargo test --workspace
+
+  dep-tree-dups:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Print duplicate dependency tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          # cargo tree is built-in on modern toolchains; fallback to plugin if missing
+          (cargo tree -d || (cargo install cargo-tree && cargo tree -d)) || true
+
+
+  riscv-perf-baseline:
+    runs-on: ubuntu-latest
+    env:
+      NC_RISCV_QEMU_RUN: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install RISC-V user-mode toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y qemu-user qemu-user-static gcc-riscv64-linux-gnu
+          qemu-riscv64 --version
+      - name: Build CLI and RISC-V backend
+        run: |
+          set -euo pipefail
+          cargo build -p neuro-compiler-cli -p nc-backend-riscv
+      - name: Run linux_user compile with telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          export NC_PROFILE_JSONL=target/ci-riscv-perf.jsonl
+          cargo run -p neuro-compiler-cli -- compile --input examples/nir/simple.json --target riscv64gcv_linux
+          test -s target/ci-riscv-perf.jsonl
+          head -n 5 target/ci-riscv-perf.jsonl || true
+      - name: Summarize telemetry JSONL to CSV
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+import json, csv, sys
+from collections import defaultdict
+path = "target/ci-riscv-perf.jsonl"
+agg = defaultdict(lambda: {"count":0,"sum":0.0,"min":float("inf"),"max":float("-inf")})
+with open(path, "r") as f:
+    for line in f:
+        line=line.strip()
+        if not line: continue
+        try:
+            rec=json.loads(line)
+            metric = rec.get("metric")
+            val = float(rec.get("value", 0.0))
+            if metric is None: 
+                continue
+            a = agg[metric]
+            a["count"] += 1
+            a["sum"] += val
+            a["min"] = min(a["min"], val)
+            a["max"] = max(a["max"], val)
+        except Exception:
+            continue
+outp = "target/ci-riscv-perf.csv"
+with open(outp, "w", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["metric","count","avg","min","max"])
+    for m, a in sorted(agg.items()):
+        avg = a["sum"]/a["count"] if a["count"] else 0.0
+        mn = a["min"] if a["count"] else 0.0
+        mx = a["max"] if a["count"] else 0.0
+        w.writerow([m,a["count"],f"{avg:.6f}",f"{mn:.6f}",f"{mx:.6f}"])
+print("Wrote CSV:", outp)
+PY
+          test -s target/ci-riscv-perf.csv
+          head -n 20 target/ci-riscv-perf.csv || true
+      - name: Upload baseline artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: riscv-perf-baseline
+          path: |
+            target/ci-riscv-perf.jsonl
+            target/ci-riscv-perf.csv
+
+  riscv-artifact-sizes:
+    runs-on: ubuntu-latest
+    env:
+      NC_RISCV_QEMU_RUN: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install toolchains for compile-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          # Linux user/control-plane compile (may use system GCC/Clang via cross flags); install linux-gnu GCC for consistency
+          sudo apt-get install -y gcc-riscv64-linux-gnu
+          # Bare-metal compile uses elf GCC
+          sudo apt-get install -y gcc-riscv64-unknown-elf
+          riscv64-linux-gnu-gcc --version
+          riscv64-unknown-elf-gcc --version
+      - name: Build CLI and RISC-V backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build -p neuro-compiler-cli -F backend-riscv -p nc-backend-riscv
+      - name: Compile all RISC-V profiles (compile-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          compile_target() {
+            local tgt="$1"
+            local jsonl="target/ci-${tgt}.jsonl"
+            export NC_PROFILE_JSONL="$jsonl"   # harmless when not running
+            # compile returns an "artifact:<out_dir>" string on stdout
+            local art; art="$(cargo run -p neuro-compiler-cli -F backend-riscv -- compile --input examples/nir/simple.json --target "$tgt")"
+            echo "$art" | tee "target/${tgt}.artifact.txt"
+          }
+          compile_target "riscv64gcv_linux"
+          compile_target "riscv32imac_bare"
+          compile_target "riscv64gc_ctrl"
+      - name: Extract artifact directories
+        id: extract
+        shell: bash
+        run: |
+          set -euo pipefail
+          parse_art() {
+            local tgt="$1"
+            local line
+            line="$(cat "target/${tgt}.artifact.txt")"
+            # Expect format: artifact:/path/to/out_dir
+            local out_dir="${line#artifact:}"
+            echo "$tgt=$out_dir" >> "$GITHUB_OUTPUT"
+          }
+          parse_art "riscv64gcv_linux"
+          parse_art "riscv32imac_bare"
+          parse_art "riscv64gc_ctrl"
+      - name: Collect artifact sizes to CSV
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Resolve out_dirs from previous step’s outputs
+          LNX="${{ steps.extract.outputs.riscv64gcv_linux }}"
+          BRM="${{ steps.extract.outputs.riscv32imac_bare }}"
+          CTRL="${{ steps.extract.outputs.riscv64gc_ctrl }}"
+          echo "target,artifact,bytes" > target/riscv-artifact-sizes.csv
+          # Helper: stat file if present
+          add_size() {
+            local tgt="$1"; shift
+            local label="$1"; shift
+            local path="$1"
+            if [ -f "$path" ]; then
+              # GNU stat on ubuntu; fallback to wc -c if needed
+              if stat -c%s "$path" >/dev/null 2>&1; then
+                sz="$(stat -c%s "$path")"
+              else
+                sz="$(wc -c < "$path")"
+              fi
+              echo "$tgt,$label,$sz" >> target/riscv-artifact-sizes.csv
+            fi
+          }
+          # Linux user profile: look for a built ELF in out_dir (common names)
+          if [ -n "$LNX" ] && [ -d "$LNX" ]; then
+            # Try common names: a.out, main, or any executable in out dir
+            for f in "$LNX"/a.out "$LNX"/main "$LNX"/*; do
+              if [ -f "$f" ] && [ -x "$f" ]; then add_size "riscv64gcv_linux" "$(basename "$f")" "$f"; fi
+            done
+          fi
+          # Bare-metal profile: firmware.elf expected
+          if [ -n "$BRM" ] && [ -d "$BRM" ]; then
+            if [ -f "$BRM/firmware.elf" ]; then add_size "riscv32imac_bare" "firmware.elf" "$BRM/firmware.elf"; fi
+          fi
+          # Control-plane profile: Linux user-mode binary in out_dir
+          if [ -n "$CTRL" ] && [ -d "$CTRL" ]; then
+            for f in "$CTRL"/a.out "$CTRL"/main "$CTRL"/*; do
+              if [ -f "$f" ] && [ -x "$f" ]; then add_size "riscv64gc_ctrl" "$(basename "$f")" "$f"; fi
+            done
+          fi
+          cat target/riscv-artifact-sizes.csv
+      - name: Upload artifact sizes CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: riscv-artifact-sizes
+          path: target/riscv-artifact-sizes.csv
+      - name: Track artifact size trends
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "target/riscv-artifact-sizes.csv" ]; then
+            echo "Artifact size summary:"
+            cat target/riscv-artifact-sizes.csv
+            # Store trend data for analysis
+            mkdir -p trends
+            cp target/riscv-artifact-sizes.csv "trends/sizes-${{ github.run_number }}.csv"
+          fi
+      - name: Upload size trends
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-size-trends
+          path: trends/
+      - name: Download baseline artifact (best effort)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p baseline-artifact
+          # List artifacts and find the most recent 'riscv-artifact-sizes'
+          artifacts_json=$(curl -sSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100")
+          dl_url=$(printf "%s" "${artifacts_json}" | python3 -c "import sys, json, os
+import datetime as dt
+data=json.load(sys.stdin).get('artifacts',[])
+cand=[a for a in data if a.get('name')=='riscv-artifact-sizes' and not a.get('expired')]
+# pick newest by created_at
+cand.sort(key=lambda x:x.get('created_at',''), reverse=True)
+print(cand[0]['archive_download_url'] if cand else '')")
+          if [ -n "${dl_url}" ]; then
+            echo "Found baseline artifact: ${dl_url}"
+            curl -sSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/zip" "${dl_url}" -o baseline.zip
+            unzip -o baseline.zip -d baseline-artifact >/dev/null 2>&1 || true
+          else
+            echo "SKIP: No prior baseline artifact found"
+          fi
+      - name: Guardrail: artifact size regression (±15%)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Find current and baseline CSVs
+          CUR_CSV=$(ls -1 **/*.csv | head -n1 || true)
+          BASE_CSV=$(ls -1 baseline-artifact/**/*.csv baseline-artifact/*.csv 2>/dev/null | head -n1 || true)
+          if [ -z "${BASE_CSV}" ] || [ -z "${CUR_CSV}" ]; then
+            echo "SKIP: Missing baseline or current CSV (BASE='${BASE_CSV}', CUR='${CUR_CSV}')"
+            exit 0
+          fi
+          python3 - "$CUR_CSV" "$BASE_CSV" << 'PY'
+import csv, sys, math
+from collections import defaultdict
+cur=sys.argv[1]; base=sys.argv[2]
+# expect rows like: profile,size_bytes or similar; try to detect columns
+def load(path):
+  with open(path, newline='') as f:
+    r=csv.DictReader(f)
+    rows=[]
+    for row in r:
+      rows.append(row)
+    return rows, r.fieldnames
+cur_rows, cur_fields = load(cur)
+base_rows, base_fields = load(base)
+# heuristics to pick columns
+def key(row):
+  for k in ("profile","target","name"):
+    if k in row: return row[k]
+  return None
+def size(row):
+  for k in ("size_bytes","bytes","size"):
+    if k in row and row[k] not in (None,""):
+      try: return float(row[k])
+      except: pass
+  # last resort: take last numeric
+  for v in row.values():
+    try:
+      return float(v)
+    except:
+      pass
+  return None
+base_map={key(r): size(r) for r in base_rows}
+viol=[]
+for r in cur_rows:
+  k=key(r); s=size(r)
+  if k in base_map and s is not None and base_map[k] not in (None,0):
+    pct=(s - base_map[k]) / base_map[k]
+    if pct > 0.15:
+      viol.append((k, base_map[k], s, pct))
+if viol:
+  print("Artifact size regressions >15%:")
+  for k,b,c,p in viol:
+    print(f"  {k}: baseline={b:.0f}B current={c:.0f}B delta={p*100:.1f}%")
+  sys.exit(1)
+else:
+  print("OK: No artifact size regressions >15%")
+PY
+        env:
+          PYTHONUNBUFFERED: "1"
+
+  docs-build-mdbook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install mdBook
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install mdbook
+      - name: Build docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mdbook build docs
+      - name: Upload built book
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdbook-html
+          path: docs/book
+
+  docs-link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install mdBook + lychee
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install mdbook
+          cargo install lychee
+          mdbook --version
+          lychee --version
+      - name: Build mdBook
+        shell: bash
+        run: |
+          set -euo pipefail
+          mdbook build docs
+      - name: Run link check (docs + book + README)
+        shell: bash
+        run: |
+          set -euo pipefail
+          lychee --accept 200,429 docs/book/**/*.html docs/**/*.md README.md
+
+  coverage-llvm-cov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Install cargo-llvm-cov
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup component add llvm-tools-preview
+          cargo install cargo-llvm-cov
+      - name: Generate coverage (LCOV)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo llvm-cov --workspace --lcov --output-path lcov.info
+          test -s lcov.info
+          head -n 20 lcov.info || true
+      - name: Enforce coverage threshold (≥70% lines)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo llvm-cov --workspace --fail-under-lines 70 --summary-only
+      - name: Generate coverage HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p coverage/html
+          cargo llvm-cov --workspace --html --output-path coverage/html
+      - name: Upload coverage HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage/html
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-coverage
+          path: lcov.info
+      - name: Compute coverage summary
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+        id: covsum
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary=$(cargo llvm-cov --workspace --summary-only | sed 's/\x1b\[[0-9;]*m//g')
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "${summary}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Post PR coverage comment
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage-report
+          message: |
+            Coverage summary (threshold 70% lines):
+
+            ```
+            ${{ steps.covsum.outputs.summary }}
+            ```
+
+
+  security-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-deny
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install cargo-deny
+          cargo deny --version
+      - name: cargo-deny (advisories)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo deny --config deny.toml check advisories
+      - name: cargo-deny (bans)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo deny --config deny.toml check bans
+      - name: cargo-deny (licenses)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo deny --config deny.toml check licenses
+      - name: cargo-deny (sources)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo deny --config deny.toml check sources
+
+  codeql-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Initialize CodeQL (Rust)
+        uses: github/codeql-action/init@v3
+        with:
+          languages: rust
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:rust"
+
+  monitoring:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [build, lint-clippy, fmt-check, coverage-llvm-cov, docs-build-mdbook, security-audit, security-deny]
+    steps:
+      - name: Track CI performance
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CI Performance Summary:"
+          echo "- Workflow: ${{ github.workflow }}"
+          echo "- Run: ${{ github.run_number }}"
+          echo "- Commit: ${{ github.sha }}"
+          echo "- Duration: ${{ github.event.workflow_run.conclusion }}"
+          echo "Jobs status:"
+          echo "  build: ${{ needs.build.result }}"
+          echo "  lint-clippy: ${{ needs['lint-clippy'].result }}"
+          echo "  fmt-check: ${{ needs['fmt-check'].result }}"
+          echo "  coverage-llvm-cov: ${{ needs['coverage-llvm-cov'].result }}"
+          echo "  docs-build-mdbook: ${{ needs['docs-build-mdbook'].result }}"
+          echo "  security-audit: ${{ needs['security-audit'].result }}"
+          echo "  security-deny: ${{ needs['security-deny'].result }}"

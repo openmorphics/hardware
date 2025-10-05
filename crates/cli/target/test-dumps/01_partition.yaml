@@ -1,9 +1,12 @@
-name: cli-lower-stub
+name: cli-lower-demo
 populations: []
 connections: []
 probes: []
 dialect: null
 attributes:
+  orchestrator_plan:
+    parts: 1
+    targets: []
   partition:
     assignment: []
     parts: 1
