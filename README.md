@@ -1,4 +1,4 @@
-# neuro-compiler (skeleton)
+# neuro-compiler 
 
 A universal neuromorphic compiler scaffold with Rust core and optional Python bindings.
 
